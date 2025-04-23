@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background colors */
+    --color-bg-primary: #FFFFFF;
+    --color-bg-secondary: #F9FAFB;
+    --color-bg-tertiary: #F3F4F6;
+    --color-bg-active: #E5E7EB;
+    
+    /* Text colors */
+    --color-text-primary: #1F2937;
+    --color-text-secondary: #6B7280;
+    --color-text-tertiary: #9CA3AF;
+    
+    /* Border colors */
+    --color-border-primary: #E5E7EB;  /* gray-200 */
+    --color-border-secondary: #D1D5DB;  /* gray-300 */
+    --color-border-dark: #374151;  /* gray-700 */
+    
+    /* Interactive colors */
+    --color-hover: #F3F4F6;
+    --color-active: #E5E7EB;
+    
+    /* Brand colors */
+    --color-primary-50: #F0F9FF;
+    --color-primary-100: #D0E7FF;
+    --color-primary-500: #007BFF;
+    --color-primary-600: #0066CC;
+    
+    /* Status colors */
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-error: #EF4444;
+  }
+
+  .dark {
+    /* Background colors - softer dark theme */
+    --color-bg-primary: #1E1E1E;      /* Base background */
+    --color-bg-secondary: #252525;    /* Subtle elevation */
+    --color-bg-tertiary: #2D2D2D;     /* Higher elevation */
+    --color-bg-active: #333333;       /* Highest elevation */
+    
+    /* Text colors - reduced contrast */
+    --color-text-primary: #E5E5E5;    /* Main text - not pure white */
+    --color-text-secondary: #A0A0A0;  /* Secondary text */
+    --color-text-tertiary: #737373;   /* Least prominent text */
+    
+    /* Border colors - subtle separation */
+    --color-border-primary: #2D2D2D;    /* Subtle borders */
+    --color-border-secondary: #333333;  /* More visible borders */
+    --color-border-dark: #404040;       /* Most visible borders */
+    
+    /* Interactive colors */
+    --color-hover: #2D2D2D;
+    --color-active: #333333;
+    
+    /* Brand colors - softer variants */
+    --color-primary-50: #1A1A1A;      /* Darkest variant */
+    --color-primary-100: #252525;     /* Dark variant */
+    --color-primary-500: #3B82F6;     /* Main brand color */
+    --color-primary-600: #2563EB;     /* Darker brand color */
+    
+    /* Status colors - slightly muted but still distinct */
+    --color-success: #059669;    /* Softer green */
+    --color-warning: #D97706;    /* Softer amber */
+    --color-error: #DC2626;      /* Softer red */
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  .bg-base {
+    background-color: var(--color-bg-primary);
+  }
+  
+  .bg-muted {
+    background-color: var(--color-bg-secondary);
+  }
+  
+  .bg-subtle {
+    background-color: var(--color-bg-tertiary);
+  }
+  
+  .bg-active {
+    background-color: var(--color-bg-active);
+  }
+  
+  .text-base {
+    color: var(--color-text-primary);
+  }
+  
+  .text-muted {
+    color: var(--color-text-secondary);
+  }
+  
+  .text-subtle {
+    color: var(--color-text-tertiary);
+  }
+  
+  .border-base {
+    border-color: var(--color-border-primary);
+  }
+  
+  .border-strong {
+    border-color: var(--color-border-secondary);
+  }
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+
+a {
+    /* no styles */
+    text-decoration: none;
+    color: inherit;
+}
