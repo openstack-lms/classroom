@@ -6,12 +6,7 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import { ApiResponse } from "@/interfaces/api/Response";
 import { ClassInviteResponse } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 // POST /api/class/[classId]/invite
 // SECURITY Level 3: Class Teacher
@@ -28,7 +23,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -39,7 +34,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -77,7 +72,7 @@ export async function GET(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -88,7 +83,7 @@ export async function GET(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -110,7 +105,7 @@ export async function GET(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -141,8 +136,4 @@ export async function GET(
             session: classToChange.sessions[classToChange.sessions.length - 1],
         }
     });
-}
-
-export async function generateStaticParams() {
-    return [{ classId: 'placeholder' }];
 }

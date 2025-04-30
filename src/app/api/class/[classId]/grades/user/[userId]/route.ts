@@ -1,22 +1,10 @@
 import { Grade } from "@/interfaces/api/Class";
 import { ApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-    return [{ 
-        classId: 'placeholder',
-        userId: 'placeholder'
-    }];
-}
 
 export async function GET (request: Request, { params }: { params: { classId: string; userId: string }}): Promise<NextResponse<ApiResponse<{ grades: Grade[] }>>> {
     const cookieStore = cookies();
@@ -29,7 +17,7 @@ export async function GET (request: Request, { params }: { params: { classId: st
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -83,7 +71,8 @@ export async function GET (request: Request, { params }: { params: { classId: st
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Grades not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "grades",
             }
         });
     }      

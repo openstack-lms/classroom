@@ -1,14 +1,9 @@
 import { ClassEventSelectArgs, CreateClassEventRequest, CreatePersonalEventRequest, GetAgendaResponse, PersonalEventSelectArgs } from "@/interfaces/api/Agenda";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse<DefaultApiResponse>>> {
     const cookieStore = cookies();
@@ -18,7 +13,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<D
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -33,7 +28,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<D
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Session doesn't exist",
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "session",
             },
         });
     }
@@ -52,12 +48,11 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<D
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'User not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "user",
             },
         });
     }
-
-    console.log(body)
 
     // Create the event
     const event = await prisma.event.create({
@@ -101,7 +96,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<D
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Event created successfully'
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "event created",
         },
     });
 }

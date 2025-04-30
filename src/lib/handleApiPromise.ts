@@ -1,5 +1,6 @@
 import { ApiResponse, DefaultApiResponse, ErrorPayload } from "@/interfaces/api/Response";
 import { AlertLevel } from "./alertLevel";
+import { getApiRemarkMessage } from "./ApiResponseRemark";
 
 export type ProcessedResponse<T = {remark: string}> = {
     success: boolean;
@@ -19,7 +20,7 @@ export async function handleApiPromise<T = {remark: string}>(
             success: data.success,
             payload: data.payload as T,
             level: data.success ? AlertLevel.SUCCESS : AlertLevel.ERROR,
-            remark: (data.payload as ErrorPayload).remark || ''
+            remark: (data.payload as ErrorPayload).remark ? getApiRemarkMessage((data.payload as ErrorPayload).remark) : ''
         };
     } catch (error) {
         return {

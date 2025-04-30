@@ -4,12 +4,7 @@ import prisma from "@/lib/prisma";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import { JoinClassRequest } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 export async function POST(request: Request): Promise<NextResponse<DefaultApiResponse>> {
     const cookieStore = cookies();
@@ -22,7 +17,7 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -31,7 +26,8 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "No class code provided",
+                remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "class code",
             },
         });
     }
@@ -50,7 +46,8 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Class not found",
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             },
         });
     }
@@ -67,9 +64,9 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
 
     if (userInClass) {
         return NextResponse.json({
-            success: false,
+            success: true,
             payload: {
-                remark: "Already in class",
+                remark: ApiResponseRemark.SUCCESS,
             },
         });
     }
@@ -100,7 +97,8 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
     return NextResponse.json({
         success: true,
         payload: {
-            remark: "Joined class",
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "joined class",
         },
     });
 }

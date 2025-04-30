@@ -3,26 +3,26 @@ import { writeFile } from "fs/promises";
 import { cookies } from "next/headers";
 import { BulkFileUploadRequest, BulkFileUploadResponse, UploadedFile } from "@/interfaces/api/Upload";
 import { NextResponse } from 'next/server';
+import { ApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+type BulkUploadPayload = {
+    files: UploadedFile[];
+};
 
-export async function POST(request: Request): Promise<NextResponse<BulkFileUploadResponse>> {
+export async function POST(request: Request): Promise<NextResponse<ApiResponse<BulkUploadPayload>>> {
     const body = await request.json();
     const cookieStore = cookies();
 
     const token = cookieStore.get('token')?.value;
 
     if (!token) {
-        return NextResponse.json<BulkFileUploadResponse>({
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
-        }, { status: 401 });
+        });
     }
 
     const userSession = await prisma.session.findUnique({
@@ -32,24 +32,24 @@ export async function POST(request: Request): Promise<NextResponse<BulkFileUploa
     });
 
     if (!userSession || !userSession.userId) {
-        return NextResponse.json<BulkFileUploadResponse>({
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
             success: false,
             payload: {
-                remark: 'Session does not exist',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
-        }, { status: 401 });
+        });
     }
 
     const { files } = body as BulkFileUploadRequest;
 
     if (!files) {
-        return NextResponse.json<BulkFileUploadResponse>({
-            success: true,
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
+            success: false,
             payload: {
-                remark: 'No files provided',
+                remark: ApiResponseRemark.BAD_REQUEST,
                 files: [],
             },
-        }, { status: 400 });
+        });
     }
 
     const uploadedFiles: UploadedFile[] = [];
@@ -94,20 +94,103 @@ export async function POST(request: Request): Promise<NextResponse<BulkFileUploa
             }
         }));
 
-        return NextResponse.json<BulkFileUploadResponse>({
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
             success: true,
             payload: {
-                files: uploadedFiles
+                files: uploadedFiles,
             },
-        }, { status: 200 });
+        });
     } catch (err) {
-        return NextResponse.json<BulkFileUploadResponse>({
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
             success: false,
             payload: {
-                remark: 'Failed to upload files',
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
             },
-        }, { status: 500 });
+        });
     }
 }
 
-// export default function DELETE(request)
+export async function DELETE(request: Request): Promise<NextResponse<ApiResponse<BulkUploadPayload>>> {
+    const body = await request.json();
+    const cookieStore = cookies();
+
+    const token = cookieStore.get('token')?.value;
+
+    if (!token) {
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.UNAUTHORIZED,
+            },
+        });
+    }
+
+    const userSession = await prisma.session.findUnique({
+        where: {
+            id: token,
+        },
+    });
+
+    if (!userSession || !userSession.userId) {
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.UNAUTHORIZED,
+            },
+        });
+    }
+
+    const { fileIds } = body as { fileIds: string[] };
+
+    if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.BAD_REQUEST,
+                files: [],
+            },
+        });
+    }
+
+    const deletedFiles: UploadedFile[] = [];
+    const failedFiles: string[] = [];
+
+    try {
+        await Promise.all(fileIds.map(async (id) => {
+            const file = await prisma.file.findUnique({ where: { id } });
+            if (!file) {
+                failedFiles.push(id);
+                return;
+            }
+            const filePath = `.${file.path}`;
+            try {
+                // Remove file from filesystem
+                await import('fs/promises').then(fs => fs.unlink(filePath));
+            } catch (err) {
+                // If file doesn't exist, continue to delete from DB
+            }
+            await prisma.file.delete({ where: { id } });
+            deletedFiles.push({
+                id: file.id,
+                path: file.path,
+                name: file.name,
+                type: file.type,
+            });
+        }));
+
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
+            success: true,
+            payload: {
+                files: deletedFiles,
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
+            },
+        });
+    } catch (err) {
+        return NextResponse.json<ApiResponse<BulkUploadPayload>>({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
+            },
+        });
+    }
+}

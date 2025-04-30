@@ -4,12 +4,6 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
-
 export async function POST(
     request: Request
 ): Promise<NextResponse<ApiResponse<LoginResponse>>> {

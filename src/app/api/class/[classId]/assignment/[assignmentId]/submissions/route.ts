@@ -6,15 +6,10 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { Submission } from "@/interfaces/api/Class";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 // GET /api/assignment/[assignmentId]/submissions
 // SECURITY Level 3: Class Teacher
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 export async function GET (_: Request, { params }: { params: { assignmentId: string } }): Promise<NextResponse<ApiResponse<GetSubmissionsResponse>>> {
     const cookieStore = cookies();
@@ -27,8 +22,8 @@ export async function GET (_: Request, { params }: { params: { assignmentId: str
     if (!userId) {
         return NextResponse.json({
             success: false,
-            payload: {
-                remark: 'Unauthorized',
+                payload: {
+                    remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -37,7 +32,7 @@ export async function GET (_: Request, { params }: { params: { assignmentId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid assignment ID',
+                remark: ApiResponseRemark.BAD_REQUEST,
             },
         });
     }
@@ -55,7 +50,8 @@ export async function GET (_: Request, { params }: { params: { assignmentId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Assignment not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "assignment",
             },
         });
     }
@@ -66,7 +62,7 @@ export async function GET (_: Request, { params }: { params: { assignmentId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -86,11 +82,4 @@ export async function GET (_: Request, { params }: { params: { assignmentId: str
             submissions,
         },
     });
-}
-
-export async function generateStaticParams() {
-    return [{ 
-        classId: 'placeholder',
-        assignmentId: 'placeholder'
-    }];
 }

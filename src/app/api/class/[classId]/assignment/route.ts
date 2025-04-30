@@ -5,12 +5,7 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { DefaultApiResponse } from "@/interfaces/api/Response";
 import { CreateAssignmentRequest, UpdateAssignmentRequest, DeleteAssignmentRequest } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 // POST /api/class/[classId]/assignment
 // SECURITY Level 3: Class Teacher
@@ -28,7 +23,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -39,7 +34,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -48,7 +43,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid class ID',
+                remark: ApiResponseRemark.BAD_REQUEST,
             },
         });
     }
@@ -75,7 +70,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -94,7 +89,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid assignment data',
+                remark: ApiResponseRemark.BAD_REQUEST,
             },
         });
     }
@@ -118,7 +113,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Failed to upload files',
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
             },
         });
     }
@@ -175,14 +170,15 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Failed to create assignment',
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
             },
         });
     }  
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Assignment created',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "assignment created",
         },
     });
 }
@@ -205,7 +201,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -216,7 +212,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -248,7 +244,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -262,11 +258,8 @@ export async function DELETE(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Assignment deleted',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "assignment deleted",
         }
     });
-}
-
-export async function generateStaticParams() {
-    return [{ classId: 'placeholder' }];
 }

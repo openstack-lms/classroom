@@ -1,15 +1,10 @@
 import { PersonalEvent, PersonalEventSelectArgs } from "@/interfaces/api/Agenda";
 import { ApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 export async function DELETE (request: Request, { params }: { params: { eventId: string } }) {
     const cookieStore = cookies();
@@ -22,7 +17,7 @@ export async function DELETE (request: Request, { params }: { params: { eventId:
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -40,7 +35,8 @@ export async function DELETE (request: Request, { params }: { params: { eventId:
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Event not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "event",
             }
         })
     }
@@ -57,11 +53,8 @@ export async function DELETE (request: Request, { params }: { params: { eventId:
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Event deleted successfully',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "event deleted",
         },
     });
-}
-
-export async function generateStaticParams() {
-    return [{ eventId: 'placeholder' }];
 }

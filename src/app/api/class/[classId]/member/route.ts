@@ -5,12 +5,7 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
 import { MemberRequest } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 // POST /api/class/[classId]/member
 // SECURITY Level 3: Class Teacher
@@ -28,7 +23,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid request',
+                remark: ApiResponseRemark.BAD_REQUEST,
             }
         });
     }
@@ -39,7 +34,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -50,7 +45,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -63,7 +58,8 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'User not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "user",
             }
         });
     }
@@ -82,7 +78,8 @@ export async function POST(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Member added',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "member added",
         }
     });
 }
@@ -105,7 +102,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -116,7 +113,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -135,7 +132,8 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Class not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             }
         });
     }
@@ -152,7 +150,8 @@ export async function DELETE(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Member removed',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "member removed",
         },
     });
 }
@@ -173,7 +172,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid request',
+                remark: ApiResponseRemark.BAD_REQUEST,
             }
         });
     }
@@ -184,7 +183,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -195,7 +194,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -208,7 +207,8 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'User not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "user",
             }
         });
     }
@@ -227,11 +227,8 @@ export async function PUT(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Member role changed',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "member role changed",
         }
     });
-}
-
-export async function generateStaticParams() {
-    return [{ classId: 'placeholder' }];
 }

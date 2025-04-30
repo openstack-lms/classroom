@@ -1,15 +1,10 @@
 import { PersonalEvent, PersonalEventSelectArgs, UpdatePersonalEventRequest } from "@/interfaces/api/Agenda";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 export async function GET (request: Request, { params }: { params: { pEventId: string }}): Promise<NextResponse<ApiResponse<{event: PersonalEvent}>>> {
     const cookieStore = cookies();
@@ -22,7 +17,7 @@ export async function GET (request: Request, { params }: { params: { pEventId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -43,7 +38,8 @@ export async function GET (request: Request, { params }: { params: { pEventId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Event not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "event",
             }
         });
     }
@@ -67,7 +63,7 @@ export async function PUT (request: Request, { params }: { params: { pEventId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -87,7 +83,8 @@ export async function PUT (request: Request, { params }: { params: { pEventId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Event not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "event",
             }
         });
     }
@@ -107,11 +104,8 @@ export async function PUT (request: Request, { params }: { params: { pEventId: s
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Event edited successfully',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "event edited",
         }
     });
-}
-
-export async function generateStaticParams() {
-    return [{ pEventId: 'placeholder' }];
 }

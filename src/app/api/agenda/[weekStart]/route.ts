@@ -1,20 +1,9 @@
 import { ClassEventSelectArgs, GetAgendaResponse, PersonalEventSelectArgs } from "@/interfaces/api/Agenda";
 import { ApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-
-export const dynamicParams = true;
-
-// Add this to help Next.js understand the route during build
-export async function generateStaticParams() {
-    return [{ id: 'placeholder' }];
-}
 
 function getWeekStartAndEnd(weekStart: string) {
     try {
@@ -41,7 +30,7 @@ export async function GET(request: Request, { params }: { params: { weekStart: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid date format',
+                remark: ApiResponseRemark.BAD_REQUEST,
             },
         });
     }
@@ -52,7 +41,7 @@ export async function GET(request: Request, { params }: { params: { weekStart: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -67,7 +56,8 @@ export async function GET(request: Request, { params }: { params: { weekStart: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Session doesn't exist",
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "session",
             },
         });
     }
@@ -86,7 +76,8 @@ export async function GET(request: Request, { params }: { params: { weekStart: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'User not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "user",
             },
         });
     }

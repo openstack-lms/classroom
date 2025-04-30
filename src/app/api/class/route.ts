@@ -4,12 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ApiResponse } from "@/interfaces/api/Response";
 import { GetClassesResponse, CreateClassRequest, CreateClassResponse, UpdateClassRequest, UpdateClassResponse } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 export async function GET(): Promise<NextResponse<ApiResponse<GetClassesResponse>>> {
     const cookieStore = cookies();
@@ -19,7 +14,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<GetClassesResponse
     if (!userId) return NextResponse.json({
         success: false,
         payload: {
-            remark: "Unauthorized",
+            remark: ApiResponseRemark.UNAUTHORIZED,
         },
     });
 
@@ -79,7 +74,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse<C
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -116,7 +111,7 @@ export async function PUT(request: Request): Promise<NextResponse<ApiResponse<Up
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
 
@@ -135,7 +130,7 @@ export async function PUT(request: Request): Promise<NextResponse<ApiResponse<Up
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "No permission",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }

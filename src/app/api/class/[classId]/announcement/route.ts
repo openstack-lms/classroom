@@ -1,15 +1,10 @@
 import { Announcement, AnnouncementSelectProps, CreateAnnouncementProps } from "@/interfaces/api/Class";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 export async function POST(request: Request, { params }: { params: { classId: string } }): Promise<NextResponse<DefaultApiResponse>> {
     const cookieStore = cookies();
@@ -22,7 +17,7 @@ export async function POST(request: Request, { params }: { params: { classId: st
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -42,7 +37,8 @@ export async function POST(request: Request, { params }: { params: { classId: st
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Class not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             },
         });
     }
@@ -68,7 +64,8 @@ export async function POST(request: Request, { params }: { params: { classId: st
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Creation success',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "announcement created",
         }
     });
 }
@@ -85,7 +82,7 @@ export async function GET(request: Request, { params }: { params: { classId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -116,7 +113,8 @@ export async function GET(request: Request, { params }: { params: { classId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Class not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             },
         });
     }
@@ -139,8 +137,4 @@ export async function GET(request: Request, { params }: { params: { classId: str
             announcements: announcementsToGet,
         }
     });
-}
-
-export async function generateStaticParams() {
-    return [{ classId: 'placeholder' }];
 }

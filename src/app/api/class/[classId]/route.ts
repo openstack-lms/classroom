@@ -6,16 +6,10 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { Announcement, AnnouncementSelectProps, AssignmentSelectArgs, Class, GetClassResponse, Submission } from "@/interfaces/api/Class";
 import { SubmissionSelectArgs } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 // GET /api/class/[classId]
 // SECURITY Level 2: Class Teacher or Student
-// pnk57 ljsadhfjshdkljfashdlkjmh
 
 export async function GET(_: Request, { params }: { params: { classId: string } }): Promise<NextResponse<ApiResponse<GetClassResponse>>> {
     const cookieStore = cookies();
@@ -27,7 +21,7 @@ export async function GET(_: Request, { params }: { params: { classId: string } 
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
 
@@ -35,7 +29,8 @@ export async function GET(_: Request, { params }: { params: { classId: string } 
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Invalid class ID",
+                remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "class",
             },
         });
     }
@@ -103,7 +98,8 @@ export async function GET(_: Request, { params }: { params: { classId: string } 
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Class not found",
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             },
         });
     }
@@ -172,7 +168,8 @@ export async function PUT(request: Request, { params }: { params: { classId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid class data',
+                remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "class data",
             }
         });
     }
@@ -185,7 +182,7 @@ export async function PUT(request: Request, { params }: { params: { classId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
 
@@ -204,7 +201,8 @@ export async function PUT(request: Request, { params }: { params: { classId: str
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Class not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             }
         });
     }
@@ -223,7 +221,8 @@ export async function PUT(request: Request, { params }: { params: { classId: str
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Class updated',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "class updated",
         },
     });
 }
@@ -232,7 +231,7 @@ export async function PUT(request: Request, { params }: { params: { classId: str
 export async function DELETE(
     request: Request,
     { params }: { params: { classId: string } }
-): Promise<NextResponse<ApiResponse<any>>> {
+): Promise<NextResponse<DefaultApiResponse>> {
     const cookieStore = cookies();
     const token = cookieStore.get("token")?.value;
     const userId = await getUserFromToken(token || null);
@@ -241,7 +240,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
 
@@ -262,7 +261,8 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Class not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             }
         });
     }
@@ -276,11 +276,8 @@ export async function DELETE(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Class deleted',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "class deleted",
         },
     });
-}
-
-export async function generateStaticParams() {
-    return [{ classId: 'placeholder' }];
 }

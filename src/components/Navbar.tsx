@@ -20,7 +20,7 @@ export default function Navbar() {
             <nav className="bg-background dark:bg-background-subtle p-4 w-full flex flex-row items-center px-7 border-b border-border dark:border-border-dark shadow-sm">
                 <div className="flex-1">
                     <a href="/" className="flex flex-row items-center space-x-1">
-                        <img src="/internal/favicon.svg" alt="logo" className="w-9" />
+                        <img src="/internal/favicon.svg" alt="logo" className="w-9" width={36} height={36} />
                         <h1 className="text-lg font-semibold text-foreground">Open<span className="font-bold text-primary-500">Stack</span></h1>
                     </a>
                 </div>

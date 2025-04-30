@@ -1,16 +1,11 @@
 import { CreateUpdateAnnotationRequest, FileSelectArgs, GetSubmissionResponse, Submission, SubmissionSelectArgs } from "@/interfaces/api/Class";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import prisma from "@/lib/prisma";
 import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 // GET /api/assignment/[assignmentId]/submission/[submissionId]
 // SECURITY Level 4: Class Teacher
@@ -26,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -44,7 +39,8 @@ export async function GET(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Assignment not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "assignment",
             },
         });
     }
@@ -55,7 +51,7 @@ export async function GET(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -82,7 +78,8 @@ export async function GET(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Submission not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "submission",
             },
         });
     }
@@ -113,7 +110,7 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -131,7 +128,8 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Assignment not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "assignment",
             },
         });
     }
@@ -142,7 +140,7 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -175,7 +173,8 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Submission not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "submission",
             },
         });
     }
@@ -201,7 +200,8 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: true,
             payload: {
-                remark: 'Submission returned',
+                remark: ApiResponseRemark.SUCCESS,
+                subject: "submission returned",
             },
         });
     }
@@ -223,7 +223,7 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Failed to upload files',
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
             },
         });
     }
@@ -252,15 +252,8 @@ export async function PUT(request: Request, { params }: { params: { assignmentId
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Submission updated',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "submission updated",
         },
     });
-}
-
-export async function generateStaticParams() {
-    return [{ 
-        classId: 'placeholder',
-        assignmentId: 'placeholder',
-        submissionId: 'placeholder'
-    }];
 }

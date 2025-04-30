@@ -5,12 +5,7 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { DefaultApiResponse } from "@/interfaces/api/Response";
 import { CreateSectionRequest, UpdateSectionRequest, DeleteSectionRequest } from "@/interfaces/api/Class";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
 export async function POST(
     request: Request,
@@ -25,7 +20,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -36,7 +31,7 @@ export async function POST(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -55,7 +50,8 @@ export async function POST(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Section creation successful',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "section created",
         },
     });
 }
@@ -72,7 +68,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -83,7 +79,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -100,7 +96,8 @@ export async function PUT(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Section edited successfully',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "section edited",
         },
     });
 }
@@ -117,7 +114,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -128,7 +125,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: "Unauthorized",
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -142,11 +139,8 @@ export async function DELETE(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Section deleted successfully',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "section deleted",
         },
     });
-}
-
-export async function generateStaticParams() {
-    return [{ classId: 'placeholder' }];
 }

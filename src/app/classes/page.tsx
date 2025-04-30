@@ -39,7 +39,7 @@ export default function Classes() {
         </div>
     }
     return (
-        <div className="flex flex-col space-y-4 w-full h-full px-40">
+        <div className="flex flex-col space-y-4 w-full h-full px-40 pt-5">
             <div className="flex flex-row items-center justify-between w-full">
                 <h1 className="text-4xl font-semibold">Classes</h1>
             </div>

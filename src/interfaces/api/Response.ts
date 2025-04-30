@@ -1,12 +1,14 @@
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
+
 export interface FailResponse {
-    remark: string;
+    remark: ApiResponseRemark;
 }
 export interface ErrorPayload {
-    remark: string;
+    remark: ApiResponseRemark;
 }
 
 export type DefaultApiResponse = ApiResponse<{
-    remark: string;
+    remark: ApiResponseRemark;
 }>;
 
 export interface ApiResponse<T = any | null> {

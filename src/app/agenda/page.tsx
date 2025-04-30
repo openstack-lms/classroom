@@ -98,7 +98,7 @@ export default function Agenda() {
     const dispatch = useDispatch();
 
     return (
-        <div className="flex flex-row ml-12">
+        <div className="flex flex-row ml-12 pt-5">
 
             {/* sidebar */}
             <div className="flex flex-col w-[17rem] shrink-0">

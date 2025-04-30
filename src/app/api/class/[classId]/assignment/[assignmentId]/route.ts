@@ -1,16 +1,11 @@
 import { Assignment, AssignmentSelectArgs, DeleteAssignmentRequest, GetAssignmentResponse, UpdateAssignmentRequest } from "@/interfaces/api/Class";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
+import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 import { getUserFromToken } from "@/lib/getUserFromToken";
 import prisma from "@/lib/prisma";
 import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const dynamicParams = true;
 
 // GET /api/assignment/[assignmentId]
 // SECURITY Level 3: Class Teacher or Student
@@ -27,7 +22,7 @@ export async function GET (request: Request, params: { params: { assignmentId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -64,7 +59,8 @@ export async function GET (request: Request, params: { params: { assignmentId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Class not found',
+                remark: ApiResponseRemark.DOES_NOT_EXIST,
+                subject: "class",
             },
         })
     }
@@ -73,7 +69,7 @@ export async function GET (request: Request, params: { params: { assignmentId: s
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -102,7 +98,7 @@ export async function GET (request: Request, params: { params: { assignmentId: s
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Get assignment successful',
+            remark: ApiResponseRemark.SUCCESS,
             assignmentData: {
                 ...assignmentProps,
                 sections: sections,
@@ -125,7 +121,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Invalid class ID',
+                remark: ApiResponseRemark.BAD_REQUEST,
             },
         });
     }
@@ -136,7 +132,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -147,7 +143,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             },
         });
     }
@@ -183,7 +179,7 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Failed to upload files',
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
             },
         });
     }
@@ -225,14 +221,15 @@ export async function PUT(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Failed to update assignment',
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
             },
         });
     }  
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Assignment updated',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "assignment updated",
         }
     });
 }
@@ -254,7 +251,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -265,7 +262,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -297,7 +294,7 @@ export async function DELETE(
         return NextResponse.json({
             success: false,
             payload: {
-                remark: 'Unauthorized',
+                remark: ApiResponseRemark.UNAUTHORIZED,
             }
         });
     }
@@ -311,14 +308,8 @@ export async function DELETE(
     return NextResponse.json({
         success: true,
         payload: {
-            remark: 'Assignment deleted',
+            remark: ApiResponseRemark.SUCCESS,
+            subject: "assignment deleted",
         }
     });
-}
-
-export async function generateStaticParams() {
-    return [{ 
-        classId: 'placeholder',
-        assignmentId: 'placeholder'
-    }];
 }

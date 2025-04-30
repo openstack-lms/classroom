@@ -48,3 +48,8 @@ prisma/dev.db
 
 # env
 .env
+
+# SWC compilation & cache files
+.swc/
+*.swc
+.swc.json
