@@ -16,6 +16,7 @@ import { HiDocument, HiDownload, HiTrash, HiDocumentText, HiAnnotation, HiPaperC
 import { useDispatch, useSelector } from "react-redux";
 import { v4 } from "uuid";
 import ProfilePicture from "@/components/util/ProfilePicture";
+import FileEdit from "@/components/class/FileEdit";
 
 export default function _Assignment({ params }: { params: { classId: string, assignmentId: string } }) {
     const [assignmentProps, setAssignmentProps] = useState<Assignment | null>(null);
@@ -217,10 +218,12 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                                     assignmentProps.attachments.map((attachment, index) => (
                                         <FileDownload
                                             key={index}
+                                            src={attachment.id}
                                             name={attachment.name}
-                                            src={attachment.path.replace('/public', '')}
                                             type={attachment.type}
+                                            thumbnailId={attachment.thumbnailId}
                                         />
+
                                     ))
                                 }
                             </div>
@@ -247,25 +250,14 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                                         )}
                                         {
                                             submissionData.annotations.map((annotation, index) => (
-                                                <div key={index} className="flex flex-row justify-between">
-                                                    <div className="flex flex-row items-center space-x-3">
-                                                        {/* <img src={annotation.path.replace('/public', '')} className="w-10 h-10 rounded-md" /> */}
-                                                        <IconFrame>
-                                                            <HiDocument />
-                                                        </IconFrame>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-semibold">
-                                                                {annotation.name}
-                                                            </span>
-                                                            <span className="text-foreground-muted text-xs">
-                                                                {annotation.type}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <Button.SM href={annotation.path} download className="text-blue-500 hover:text-blue-700">
-                                                        <HiDownload />
-                                                    </Button.SM>
-                                                </div>
+                                                <FileDownload
+                                                    key={index}
+                                                    src={annotation.id}
+                                                    name={annotation.name}
+                                                    type={annotation.type}
+                                                    thumbnailId={annotation.thumbnailId}
+
+                                                />
                                             ))
                                         }
                                     </div>
@@ -284,32 +276,30 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                             />)}
                             {submissionData.attachments.length > 0 && (<div className="flex flex-col space-y-7"
                             >{submissionData.attachments.map((attachment, index) => (
-                                <div key={index} className="flex flex-row justify-between">
-                                    <div className="flex flex-row items-center space-x-3">
-                                        {/* <img src={attachment.path.replace('/public', '')} className="w-10 h-10 rounded-md" /> */}
-                                        <IconFrame>
-                                            <HiDocument />
-                                        </IconFrame>
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold">
-                                                {attachment.name}
-                                            </span>
-                                            <span className="text-foreground-muted text-xs">
-                                                {attachment.type}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {!submissionData.submitted && (
-                                        <Button.SM className="text-red-500" onClick={() => {
+                                <>{
+                                    submissionData.submitted ?
+                                    <FileDownload
+                                        key={index}
+                                        src={attachment.id}
+                                        name={attachment.name}
+                                        type={attachment.type}
+                                        thumbnailId={attachment.thumbnailId}
+                                    />
+                                    :
+                                    <FileEdit
+                                        key={index}
+                                        src={attachment.id}
+                                        name={attachment.name}
+                                        type={attachment.type}
+                                        thumbnailId={attachment.thumbnailId}
+                                        onDelete={() => {
                                             setSubmissionData({
                                                 ...submissionData,
                                                 refetch: false,
-                                                attachments: submissionData.attachments.filter(a => a.id !== attachment.id),
-                                                removedAttachments: (attachment.id) ? [{ id: attachment.id }] : [],
                                             });
-                                        }}><HiTrash /></Button.SM>
-                                    )}
-                                </div>
+                                        }}  
+                                    />
+                                }</>
                             ))}
                             </div>
                             )}

@@ -31,6 +31,12 @@ interface InputWrapperProps {
     label?: string;
 }
 
+// Add this interface after the other interfaces
+interface SearchableSelectProps extends BaseInputProps {
+    onChange?: (e: { target: { value: string } }) => void;
+    searchList: ReadonlyArray<{ readonly value: string; readonly label: string }>;
+}
+
 function InputWrapper(props: InputWrapperProps) {
     if (!props.label) return <>{props.children}</>
     return (
@@ -97,8 +103,7 @@ const Input = {
                             {selectedText ? selectedText.props.children : placeholder}
                         </span>
                         <MdKeyboardArrowDown 
-                            className={`
-                                size-5 transition-transform duration-200 
+                            className={`                                size-5 transition-transform duration-200 
                                 ${isOpen ? 'rotate-180' : ''}
                             `} 
                         />
@@ -172,6 +177,86 @@ const Input = {
                 />
             </InputWrapper>
         )
+    },
+    SearchableSelect: ({ label, value, onChange, searchList, placeholder = "Search and select...", ...props }: SearchableSelectProps) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [displayValue, setDisplayValue] = useState('');
+        const selectRef = useRef<HTMLDivElement>(null);
+
+        // Update display value when value changes
+        useEffect(() => {
+            const selectedOption = searchList.find(option => option.value === value);
+            setDisplayValue(selectedOption?.label || value || '');
+        }, [value, searchList]);
+
+        useEffect(() => {
+            const handleClickOutside = (event: MouseEvent) => {
+                if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+                    setIsOpen(false);
+                }
+            };
+
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, []);
+
+        const filteredOptions = searchList.filter(option =>
+            option.label.toLowerCase().includes(displayValue.toLowerCase())
+        );
+
+        return (
+            <InputWrapper label={label}>
+                <div ref={selectRef} className="relative">
+                    <input
+                        type="text"
+                        value={displayValue}
+                        onChange={(e) => {
+                            const newValue = e.target.value;
+                            setDisplayValue(newValue);
+                            onChange?.({ target: { value: newValue } });
+                            setIsOpen(true);
+                        }}
+                        onFocus={() => setIsOpen(true)}
+                        placeholder={placeholder}
+                        className="px-4 py-3 bg-background-muted border-border border rounded-md text-sm outline-none shadow-sm transition-all duration-200 ease-in-out focus:border-primary-300 focus:ring-1 focus:ring-primary-300 w-full"
+                        {...props}
+                    />
+
+                    {isOpen && (
+                        <div className="
+                            absolute z-50 w-full mt-1
+                            bg-background
+                            border border-border
+                            rounded-md shadow-lg
+                        ">
+                            <div className="max-h-60 overflow-auto">
+                                {filteredOptions.map((option) => (
+                                    <div
+                                        key={option.value}
+                                        onClick={() => {
+                                            onChange?.({ target: { value: option.value } });
+                                            setDisplayValue(option.label);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`
+                                            px-4 py-2.5 cursor-pointer text-sm
+                                            hover:bg-background-muted 
+                                            transition-colors duration-200
+                                            ${option.value === value ? 
+                                                'bg-primary-50 text-primary-600' 
+                                                : ''
+                                            }
+                                        `}
+                                    >
+                                        {option.label}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </InputWrapper>
+        );
     }
 }
 

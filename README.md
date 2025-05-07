@@ -87,8 +87,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🤝 Team
 
-- Alan Shen - Project Lead
-... TBF
+- Alan Shen - Project Lead & Devloper
+- [Team Member 1] - Frontend Developer
+- [Team Member 2] - Backend Developer
+- [Team Member 3] - UI/UX Designer
 
 ## 📬 Contact
 

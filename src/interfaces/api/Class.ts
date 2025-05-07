@@ -5,6 +5,7 @@ export type File = {
     name: string;
     type: string;
     path: string;
+    thumbnailId: string | null;
 }
 
 export type NewFile = {
@@ -24,6 +25,7 @@ export const FileSelectArgs = {
         name: true,
         path: true,
         type: true,
+        thumbnailId: true,
     }
 }
 
@@ -50,7 +52,7 @@ export type Class = {
     id: string;
     name: string;
     subject: string;
-    section: number;
+    section: string;
     teachers: { id: string; username: string }[];
     students: { id: string; username: string }[];
     // assignments: {
@@ -156,12 +158,7 @@ export const AssignmentSelectArgs = {
     createdAt: true,
     instructions: true,
     attachments: {
-        select: {
-            path: true,
-            name: true,
-            type: true,
-            id: true,
-        }
+        ...FileSelectArgs,
     },
     graded: true,
     maxGrade: true,
@@ -213,7 +210,7 @@ export type GetClassesResponse = {
     teacherInClass: Array<{
         id: string;
         name: string;
-        section: number;
+        section: string;
         subject: string;
         dueToday: Array<{
             id: string;
@@ -224,7 +221,7 @@ export type GetClassesResponse = {
     studentInClass: Array<{
         id: string;
         name: string;
-        section: number;
+        section: string;
         subject: string;
         dueToday: Array<{
             id: string;
@@ -245,7 +242,7 @@ export type CreateClassResponse = {
     newClass: {
         id: string;
         name: string;
-        section: number;
+        section: string;
         subject: string;
     };
 };
@@ -261,7 +258,7 @@ export type UpdateClassResponse = {
     updatedClass: {
         id: string;
         name: string;
-        section: number;
+        section: string;
         subject: string;
     };
 };

@@ -6,7 +6,29 @@ import { getUserFromToken } from "@/lib/getUserFromToken";
 import { JoinClassRequest } from "@/interfaces/api/Class";
 import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
+/**
+ * POST /api/class/join
+ * Allows a user to join a class using a class code
+ * 
+ * @param {Request} request - The incoming request object containing the class code
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @example
+ * // Request body
+ * {
+ *   "code": "class-session-id"
+ * }
+ * 
+ * @security Requires authentication
+ * 
+ * @remarks
+ * - Validates the class code exists
+ * - Checks if user is already in the class
+ * - Adds user as a student to the class
+ * - Creates submission entries for all existing assignments
+ */
 export async function POST(request: Request): Promise<NextResponse<DefaultApiResponse>> {
+    // Get and validate user authentication
     const cookieStore = cookies();
     const token = cookieStore.get("token")?.value;
     const body: JoinClassRequest = await request.json();
@@ -22,6 +44,7 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         });
     }
 
+    // Validate request body
     if (!body.code) {
         return NextResponse.json({
             success: false,
@@ -32,6 +55,7 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         });
     }
 
+    // Find class by session code
     const classToJoin = await prisma.class.findFirst({
         where: {
             sessions: {
@@ -52,6 +76,7 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         });
     }
 
+    // Check if user is already in the class
     const userInClass = await prisma.class.findFirst({
         where: {
             id: classToJoin.id,
@@ -71,6 +96,7 @@ export async function POST(request: Request): Promise<NextResponse<DefaultApiRes
         });
     }
 
+    // Add user to class
     await prisma.class.update({
         where: { id: classToJoin.id },
         data: {

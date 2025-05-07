@@ -9,6 +9,7 @@ import Loading from "@/components/Loading";
 import Input from "@/components/util/Input";
 import { GetClassResponse, UpdateClassRequest } from "@/interfaces/api/Class";
 import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
+import { SUBJECT_OPTIONS, SECTION_OPTIONS } from "@/components/util/commonData";
 
 export default function Assignments ({ params }: { params: { classId: string }}) {
     const classId = params.classId;
@@ -69,16 +70,15 @@ export default function Assignments ({ params }: { params: { classId: string }})
                 type="text"
                 value={classProps.name}
                 onChange={(e) => setClassProps({ ...classProps, name: e.target.value })} />
-            <Input.Text
+            <Input.SearchableSelect
                 label="Class Section"
-                type="number"
-                min="1"
-                value={Number(classProps.section)}
-                onChange={(e) => setClassProps({ ...classProps, section: Number(e.target.value).toString() })} />
-            <Input.Text
+                value={classProps.section}
+                searchList={SECTION_OPTIONS}
+                onChange={(e) => setClassProps({ ...classProps, section: e.target.value })} />
+            <Input.SearchableSelect
                 label="Class Subject"
-                type="text"
                 value={classProps.subject}
+                searchList={SUBJECT_OPTIONS}
                 onChange={(e) => setClassProps({ ...classProps, subject: e.target.value })} />
     </div>);
 }

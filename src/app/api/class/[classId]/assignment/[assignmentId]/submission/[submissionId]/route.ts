@@ -10,6 +10,39 @@ import { NextResponse } from "next/server";
 // GET /api/assignment/[assignmentId]/submission/[submissionId]
 // SECURITY Level 4: Class Teacher
 
+/**
+ * GET /api/class/[classId]/assignment/[assignmentId]/submission/[submissionId]
+ * Retrieves a specific submission with detailed information
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.assignmentId - The ID of the assignment
+ * @param {string} params.submissionId - The ID of the submission to retrieve
+ * @returns {Promise<NextResponse<ApiResponse<GetSubmissionResponse>>>} Submission data or error response
+ * 
+ * @example
+ * // Response body
+ * {
+ *   "success": true,
+ *   "payload": {
+ *     "submissionData": {
+ *       "id": "submission-id",
+ *       "submittedAt": "2024-03-20T00:00:00.000Z",
+ *       "late": false,
+ *       "assignment": {...},
+ *       ...
+ *     }
+ *   }
+ * }
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Retrieves detailed submission information including late status
+ * - Verifies teacher permissions in the class
+ * - Includes associated assignment data
+ * - Calculates whether submission is late based on due date
+ */
 export async function GET(request: Request, { params }: { params: { assignmentId: string, submissionId: string } }): Promise<NextResponse<ApiResponse<GetSubmissionResponse>>> {
     const cookieStore = cookies();
 
@@ -99,6 +132,34 @@ export async function GET(request: Request, { params }: { params: { assignmentId
 // SECURITY Level 4: Class Teacher
 // For attaching files to a student submission
 
+/**
+ * PUT /api/class/[classId]/assignment/[assignmentId]/submission/[submissionId]
+ * Updates a submission with grades and annotations
+ * 
+ * @param {Request} request - The incoming request object containing submission updates
+ * @param {Object} params - Route parameters
+ * @param {string} params.assignmentId - The ID of the assignment
+ * @param {string} params.submissionId - The ID of the submission to update
+ * @returns {Promise<NextResponse<ApiResponse<DefaultApiResponse>>>} Success or error response
+ * 
+ * @example
+ * // Request body
+ * {
+ *   "gradeReceived": 85,
+ *   "newAttachments": [...],
+ *   "removedAttachments": [...],
+ *   "return": false
+ * }
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Updates submission grade and annotations
+ * - Handles file attachments (add/remove)
+ * - Can mark submission as returned/unreturned
+ * - Verifies teacher permissions in the class
+ * - Validates submission existence
+ */
 export async function PUT(request: Request, { params }: { params: { assignmentId: string, submissionId: string } }): Promise<NextResponse<ApiResponse<DefaultApiResponse>>> {
     const cookieStore = cookies();
 

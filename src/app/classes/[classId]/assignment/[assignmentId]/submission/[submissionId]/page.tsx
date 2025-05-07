@@ -113,9 +113,10 @@ export default function SubmissionPage({ params }: { params: { classId: string, 
                     {submissionData.attachments.map((attachment, index) => (
                         <FileDownload
                             key={index}
-                            src={attachment.path.replace('/public', '')}
+                            src={attachment.id}
                             name={attachment.name}
                             type={attachment.type}
+                            thumbnailId={attachment.thumbnailId}
                         />
                     ))}
                 </div>
@@ -138,9 +139,10 @@ export default function SubmissionPage({ params }: { params: { classId: string, 
                     /// FIXME: don't allow remove / add when returned !!
                     <FileEdit
                         key={index}
-                        src={attachment.path.replace('/public', '')}
+                        src={attachment.id}
                         name={attachment.name}
                         type={attachment.type}
+                        thumbnailId={attachment.thumbnailId}
                         onDelete={() => {
                             setSubmissionData({
                                 ...submissionData,

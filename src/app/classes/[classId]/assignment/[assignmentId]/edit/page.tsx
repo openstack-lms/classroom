@@ -160,6 +160,7 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                             src={attachment.path.replace('/public', '')}
                             name={attachment.name}
                             type={attachment.type}
+                            thumbnailId={attachment.thumbnailId}
                             onDelete={() => {
                                 setAssignmentData({
                                     ...assignmentData,

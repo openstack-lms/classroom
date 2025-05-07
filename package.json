@@ -12,15 +12,19 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
     "@prisma/client": "^5.17.0",
     "@reduxjs/toolkit": "^2.2.6",
+    "@types/sharp": "^0.32.0",
     "@types/uuid": "^10.0.0",
     "next": "14.2.5",
+    "pdfjs-dist": "^5.2.133",
     "prisma": "^5.17.0",
     "react": "^18",
     "react-dom": "^18",
     "react-icons": "^5.2.1",
     "react-redux": "^9.1.2",
+    "sharp": "^0.34.1",
     "ts-node": "^10.9.2",
     "uuid": "^10.0.0"
   },

@@ -6,6 +6,29 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+/**
+ * PUT /api/class/[classId]/announcement/[announcementId]
+ * Updates a specific announcement
+ * 
+ * @param {Request} request - The incoming request object containing updated announcement data
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class
+ * @param {string} params.announcementId - The ID of the announcement to update
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @example
+ * // Request body
+ * {
+ *   "remarks": "Updated announcement content"
+ * }
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Updates announcement content
+ * - Verifies teacher permissions in the class
+ * - Validates announcement existence
+ */
 export async function PUT(request: Request, { params }: { params: { classId: string, announcementId: string } }): Promise<NextResponse<DefaultApiResponse>> {
     const cookieStore = cookies();
 
@@ -84,6 +107,23 @@ export async function PUT(request: Request, { params }: { params: { classId: str
     });
 }
 
+/**
+ * DELETE /api/class/[classId]/announcement/[announcementId]
+ * Deletes a specific announcement
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class
+ * @param {string} params.announcementId - The ID of the announcement to delete
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Removes an announcement from the class
+ * - Verifies teacher permissions in the class
+ * - Validates announcement existence
+ */
 export async function DELETE(request: Request, { params }: { params: { classId: string, announcementId: string } }): Promise<NextResponse<DefaultApiResponse>> {
     const cookieStore = cookies();
 
@@ -156,7 +196,38 @@ export async function DELETE(request: Request, { params }: { params: { classId: 
     });
 }
 
-
+/**
+ * GET /api/class/[classId]/announcement/[announcementId]
+ * Retrieves a specific announcement from a class
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class
+ * @param {string} params.announcementId - The ID of the announcement to retrieve
+ * @returns {Promise<NextResponse<ApiResponse<{announcement: Announcement}>>>} Announcement data or error response
+ * 
+ * @example
+ * // Response body
+ * {
+ *   "success": true,
+ *   "payload": {
+ *     "announcement": {
+ *       "id": "announcement-id",
+ *       "title": "Announcement Title",
+ *       "content": "Announcement Content",
+ *       "createdAt": "2024-03-20T00:00:00.000Z",
+ *       ...
+ *     }
+ *   }
+ * }
+ * 
+ * @security Requires authentication. User must be either a teacher or student in the class
+ * 
+ * @remarks
+ * - Retrieves detailed information about a specific announcement
+ * - Verifies user has access to the class
+ * - Returns complete announcement data including all fields
+ */
 export async function GET(request: Request, { params }: { params: { classId: string, announcementId: string } }): Promise<NextResponse<ApiResponse<{announcement: Announcement}>>> {
     const cookieStore = cookies();
 

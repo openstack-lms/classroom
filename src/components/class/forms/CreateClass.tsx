@@ -10,6 +10,7 @@ import Input from "../../util/Input";
 import { CreateClassRequest } from "@/interfaces/api/Class";
 import { DefaultApiResponse } from "@/interfaces/api/Response";
 import { handleApiPromise } from "@/lib/handleApiPromise";
+import { SUBJECT_OPTIONS, SECTION_OPTIONS } from "@/components/util/commonData";
 
 export default function CreateClass() {
     const dispatch = useDispatch();
@@ -47,17 +48,16 @@ export default function CreateClass() {
                     type="text"
                     value={classData.name} 
                     onChange={(e) => setClassData({ ...classData, name: e.target.value })} />
-                <Input.Text
+                <Input.SearchableSelect
                     label="Subject"
-                    type="text"
                     value={classData.subject}
+                    searchList={SUBJECT_OPTIONS}
                     onChange={(e) => setClassData({ ...classData, subject: e.target.value })} />
-                <Input.Text
+                <Input.SearchableSelect
                     label="Section"
-                    type="number"
-                    min="1"
                     value={classData.section}
-                    onChange={(e) => setClassData({ ...classData, section: Number(e.target.value).toString() })} />
+                    searchList={SECTION_OPTIONS}
+                    onChange={(e) => setClassData({ ...classData, section: e.target.value })} />
             </div>
             <Button.Primary className="mt-5">Create</Button.Primary>
         </form>

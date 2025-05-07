@@ -47,7 +47,7 @@ model Class {
   id       String      @id @default(uuid())
   name     String
   subject  String
-  section  Int
+  section  String
   teachers  User[] @relation("UserTeacherToClass")
   students User[] @relation("UserStudentToClass")
 
@@ -68,6 +68,11 @@ model File {
   user       User? @relation(fields: [userId], references: [id])
   userId     String?
   uploadedAt DateTime? @default(now())
+
+  // Thumbnail relationship
+  thumbnail   File?  @relation("Thumbnail", fields: [thumbnailId], references: [id])
+  thumbnailId String? @unique
+  originalFile File? @relation("Thumbnail")
 
   assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   assignmentId String?

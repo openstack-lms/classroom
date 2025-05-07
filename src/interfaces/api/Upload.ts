@@ -24,12 +24,7 @@ export interface BulkFileUploadResponse {
     success: boolean;
     payload: {
         remark?: string;
-        files?: {
-            id: string;
-            name: string;
-            type: string;
-            path: string;
-        }[];
+        files?: UploadedFile[];
     };
 }
 
@@ -38,4 +33,5 @@ export interface UploadedFile {
     name: string;
     type: string;
     path: string;
+    thumbnailId: string | null | undefined;
 } 

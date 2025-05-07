@@ -24,6 +24,35 @@ function getWeekStartAndEnd(weekStart: string) {
     }
 }
 
+/**
+ * GET /api/agenda/[weekStart]
+ * Retrieves all events (personal and class) for a specific week
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.weekStart - The start date of the week in ISO format
+ * @returns {Promise<NextResponse<ApiResponse<GetAgendaResponse>>>} List of events or error response
+ * 
+ * @example
+ * // Response body
+ * {
+ *   "success": true,
+ *   "payload": {
+ *     "events": {
+ *       "personal": [...],
+ *       "class": [...]
+ *     }
+ *   }
+ * }
+ * 
+ * @security Requires authentication
+ * 
+ * @remarks
+ * - Retrieves both personal and class events for the specified week
+ * - Includes events from all classes where user is teacher or student
+ * - Validates week start date format
+ * - Returns events grouped by type (personal/class)
+ */
 export async function GET(request: Request, { params }: { params: { weekStart: string }}): Promise<NextResponse<ApiResponse<GetAgendaResponse>>> {
     const dateRange = getWeekStartAndEnd(params.weekStart);
     if (!dateRange) {
