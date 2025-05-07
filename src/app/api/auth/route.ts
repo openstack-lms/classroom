@@ -4,6 +4,28 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+/**
+ * POST /api/auth
+ * Authenticates a user and creates a new session
+ * 
+ * @param {Request} request - The incoming request object containing login credentials
+ * @returns {Promise<NextResponse<ApiResponse<LoginResponse>>>} Authentication result with session token
+ * 
+ * @example
+ * // Request body
+ * {
+ *   "username": "user123",
+ *   "password": "password123"
+ * }
+ * 
+ * @security Public endpoint
+ * 
+ * @remarks
+ * - Validates username and password
+ * - Creates a new session with 7-day expiration
+ * - Sets session token in cookies
+ * - Returns authentication status
+ */
 export async function POST(
     request: Request
 ): Promise<NextResponse<ApiResponse<LoginResponse>>> {
@@ -55,6 +77,34 @@ export async function POST(
     });
 }
 
+/**
+ * GET /api/auth
+ * Verifies the current session and returns user information if valid
+ * 
+ * @param {Request} request - The incoming request object
+ * @returns {Promise<NextResponse<ApiResponse<SessionVerificationResponse>>>} Session verification result with user info
+ * 
+ * @example
+ * // Response body
+ * {
+ *   "success": true,
+ *   "payload": {
+ *     "authenticated": true,
+ *     "user": {
+ *       "username": "user123",
+ *       "id": "user-id"
+ *     }
+ *   }
+ * }
+ * 
+ * @security Requires valid session token in cookies
+ * 
+ * @remarks
+ * - Checks for session token in cookies
+ * - Validates session existence and expiration
+ * - Returns user information if session is valid
+ * - Returns authentication status
+ */
 export async function GET(
     request: Request
 ): Promise<NextResponse<ApiResponse<SessionVerificationResponse>>> {

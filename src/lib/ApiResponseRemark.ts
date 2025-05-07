@@ -1,9 +1,10 @@
 export enum ApiResponseRemark {
-    UNAUTHORIZED = 1000,
-    DOES_NOT_EXIST = 1001,
-    INTERNAL_SERVER_ERROR = 1002,
-    BAD_REQUEST = 1003,
-    SUCCESS = 1004,
+    UNAUTHORIZED = "UNAUTHORIZED",
+    DOES_NOT_EXIST = "DOES_NOT_EXIST",
+    INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR",
+    BAD_REQUEST = "BAD_REQUEST",
+    SUCCESS = "SUCCESS",
+    PARTIAL_SUCCESS = "PARTIAL_SUCCESS",
 }
 
 export const getApiRemarkMessage = (remark: ApiResponseRemark, subject?: string): string => {
@@ -13,6 +14,7 @@ export const getApiRemarkMessage = (remark: ApiResponseRemark, subject?: string)
         [ApiResponseRemark.INTERNAL_SERVER_ERROR]: 'Internal server error',
         [ApiResponseRemark.BAD_REQUEST]: 'Bad request',
         [ApiResponseRemark.SUCCESS]: 'Success',
+        [ApiResponseRemark.PARTIAL_SUCCESS]: 'Partial success',
     };
 
     const baseMessage = baseMessages[remark];
@@ -25,4 +27,5 @@ export const ApiRemarkToStatus = {
     [ApiResponseRemark.INTERNAL_SERVER_ERROR]: 500,
     [ApiResponseRemark.BAD_REQUEST]: 400,
     [ApiResponseRemark.SUCCESS]: 200,
+    [ApiResponseRemark.PARTIAL_SUCCESS]: 206,
 }

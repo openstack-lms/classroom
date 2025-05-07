@@ -7,8 +7,40 @@ import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-// GET /api/assignment/[assignmentId]
-// SECURITY Level 3: Class Teacher or Student
+/**
+ * GET /api/class/[classId]/assignment/[assignmentId]
+ * Retrieves detailed information about a specific assignment
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.assignmentId - The ID of the assignment to retrieve
+ * @returns {Promise<NextResponse<ApiResponse<GetAssignmentResponse>>>} Assignment data or error response
+ * 
+ * @example
+ * // Response body
+ * {
+ *   "success": true,
+ *   "payload": {
+ *     "remark": "SUCCESS",
+ *     "assignmentData": {
+ *       "id": "assignment-id",
+ *       "title": "Assignment Title",
+ *       "instructions": "Assignment Instructions",
+ *       "dueDate": "2024-03-20T00:00:00.000Z",
+ *       "sections": [...],
+ *       ...
+ *     },
+ *     "classId": "class-id"
+ *   }
+ * }
+ * 
+ * @security Requires authentication. User must be either a teacher or student in the class
+ * 
+ * @remarks
+ * - Retrieves assignment details including sections
+ * - Verifies user has access to the class
+ * - Returns assignment data with associated class information
+ */
 export async function GET (request: Request, params: { params: { assignmentId: string }}): Promise<NextResponse<ApiResponse<GetAssignmentResponse>>> {
     const assignmentId = params.params.assignmentId;
 
@@ -109,6 +141,38 @@ export async function GET (request: Request, params: { params: { assignmentId: s
 }
 
 
+/**
+ * PUT /api/class/[classId]/assignment/[assignmentId]
+ * Updates an existing assignment
+ * 
+ * @param {Request} request - The incoming request object containing updated assignment data
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class containing the assignment
+ * @param {string} params.assignmentId - The ID of the assignment to update
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @example
+ * // Request body
+ * {
+ *   "title": "Updated Title",
+ *   "instructions": "Updated Instructions",
+ *   "dueDate": "2024-03-20T00:00:00.000Z",
+ *   "newAttachments": [...],
+ *   "removedAttachments": [...],
+ *   "section": { "id": "section-id" },
+ *   "graded": true,
+ *   "maxGrade": 100,
+ *   "weight": 1
+ * }
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Updates assignment details including title, instructions, due date
+ * - Handles file attachments (add/remove)
+ * - Updates grading settings
+ * - Verifies teacher permissions
+ */
 export async function PUT(
     request: Request,
     { params }: { params: { classId: string, assignmentId: string } }
@@ -235,6 +299,24 @@ export async function PUT(
 }
 
 
+/**
+ * DELETE /api/class/[classId]/assignment/[assignmentId]
+ * Deletes an assignment
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class containing the assignment
+ * @param {string} params.assignmentId - The ID of the assignment to delete
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Permanently deletes the assignment
+ * - Removes all associated submissions
+ * - Verifies teacher permissions
+ * - Returns success status
+ */
 export async function DELETE(
     request: Request,
     { params }: { params: { classId: string, assignmentId: string } }

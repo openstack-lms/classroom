@@ -6,6 +6,23 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+/**
+ * GET /api/class/[classId]/grades/user/[userId]
+ * Retrieves grades for a specific user in a class
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class
+ * @param {string} params.userId - The ID of the user whose grades to retrieve
+ * @returns {Promise<NextResponse<ApiResponse<{ grades: Grade[] }>>>} List of grades or error response
+ * 
+ * @security Requires authentication. User must be either the student or a teacher in the class
+ * 
+ * @remarks
+ * - Retrieves all graded submissions for the specified user
+ * - Includes assignment details with each grade
+ * - Verifies user has permission to view grades
+ */
 export async function GET (request: Request, { params }: { params: { classId: string; userId: string }}): Promise<NextResponse<ApiResponse<{ grades: Grade[] }>>> {
     const cookieStore = cookies();
 

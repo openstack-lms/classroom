@@ -27,15 +27,17 @@ export default function ClassHome({ params }: { params: { classId: string } }) {
     useEffect(() => {
         handleApiPromise<GetClassResponse>(fetch(`/api/class/${classId}`))
             .then(({ success, payload, level, remark }: ProcessedResponse<GetClassResponse>) => {
-                if (success)    {
+                if (success) {
                     setClassProps(payload.classData);
                     dispatch(setRefetch(false));
                 }
 
-                if (!success)   dispatch(addAlert({
-                    level: level,
-                    remark: remark,
-                }))
+                if (!success) {
+                    dispatch(addAlert({
+                        level: level,
+                        remark: remark,
+                    }));
+                }
             });
     }, [appState.refetch]);
 

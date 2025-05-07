@@ -1,22 +1,41 @@
 import { NextResponse } from "next/server";
-import { getUserFromToken } from "@/lib/getUserFromToken";
-import prisma from "@/lib/prisma";
-import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
 import { cookies } from "next/headers";
 import { DefaultApiResponse } from "@/interfaces/api/Response";
 import { CreateAssignmentRequest, UpdateAssignmentRequest, DeleteAssignmentRequest } from "@/interfaces/api/Class";
 import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
+import { getUserFromToken } from "@/lib/getUserFromToken";
+import { userIsTeacherInClass } from "@/lib/userIsTeacherInClass";
+import prisma from "@/lib/prisma";
 
-// POST /api/class/[classId]/assignment
-// SECURITY Level 3: Class Teacher
+/**
+ * POST /api/class/[classId]/assignment
+ * Creates a new assignment in the specified class
+ * 
+ * @param {Request} request - The incoming request object containing assignment data
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class to create the assignment in
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ */
 export async function POST(
     request: Request,
     { params }: { params: { classId: string } }
 ): Promise<NextResponse<DefaultApiResponse>> {
-    const body: CreateAssignmentRequest = await request.json();
+    // Validate request parameters
+    if (!params.classId) {
+        return NextResponse.json({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "classId is required",
+            },
+        });
+    }
+
+    // Get and validate user authentication
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
-
     const userId = await getUserFromToken(token || null);
 
     if (!userId) {
@@ -28,41 +47,44 @@ export async function POST(
         });
     }
 
+    // Verify teacher permissions
     const teacherInClass = await userIsTeacherInClass(userId, params.classId);
-
     if (!teacherInClass) {
         return NextResponse.json({
             success: false,
             payload: {
                 remark: ApiResponseRemark.UNAUTHORIZED,
+                subject: "User must be a teacher in the class",
             },
         });
     }
 
-    if (!params.classId) {
+    // Parse and validate request body
+    const body: CreateAssignmentRequest = await request.json();
+    const { title, instructions, dueDate, files, maxGrade, graded, weight, sectionId } = body;
+
+    if (!title || !instructions || !dueDate || !files) {
         return NextResponse.json({
             success: false,
             payload: {
                 remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "Missing required fields",
             },
         });
     }
 
+    // Get class data for creating submissions
     const classToChange = await prisma.class.findFirst({
         where: {
             id: params.classId,
             teachers: {
-                some: {
-                    id: userId,
-                }
+                some: { id: userId }
             }
         },
         include: {
             students: {
-                select: {
-                    id: true,
-                },
-            },
+                select: { id: true }
+            }
         }
     });
 
@@ -71,30 +93,13 @@ export async function POST(
             success: false,
             payload: {
                 remark: ApiResponseRemark.UNAUTHORIZED,
+                subject: "Class not found or user is not a teacher",
             },
         });
     }
 
-    const {
-        title,
-        instructions,
-        dueDate,
-        files,
-        maxGrade,
-        graded,
-        weight
-    } = body;
-
-    if (!title || !instructions || !dueDate || !files) {
-        return NextResponse.json({
-            success: false,
-            payload: {
-                remark: ApiResponseRemark.BAD_REQUEST,
-            },
-        });
-    }
-
-    const req = await fetch(`http://localhost:3000/api/upload/bulk`, {
+    // Upload files
+    const uploadResponse = await fetch(`http://localhost:3000/api/upload/bulk`, {
         method: 'POST',
         credentials: "same-origin",
         mode: "cors",
@@ -102,99 +107,105 @@ export async function POST(
             'Content-type': 'application/json',
             'Cookie': `token=${token}`,
         },
-        body: JSON.stringify({
-            files,
-        }),
-    })
+        body: JSON.stringify({ files }),
+    });
 
-    const res = await req.json();
-
-    if (!res.success) {
+    const uploadResult = await uploadResponse.json();
+    if (!uploadResult.success) {
         return NextResponse.json({
             success: false,
             payload: {
                 remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
+                subject: "Failed to upload files",
             },
         });
     }
 
-    const assignment = await prisma.assignment.create({
-        data: {
-            title,
-            instructions,
-            dueDate: new Date(dueDate),
-            maxGrade,
-            graded,
-            weight,
-            class: {
-                connect: {
-                    id: params.classId,
+    // Create assignment with all related data
+    try {
+        const assignment = await prisma.assignment.create({
+            data: {
+                title,
+                instructions,
+                dueDate: new Date(dueDate),
+                maxGrade,
+                graded,
+                weight,
+                class: {
+                    connect: { id: params.classId }
                 },
-            },
-            attachments: {
-                connect: [
-                    ...res.payload.files.map((file: { id: string }) => ({
-                        id: file.id,
-                    })),
-                ]
-            },
-            ...(() => {
-                if (body.sectionId) {
-                    return {
-                        section: {
-                            connect: {
-                                id: body.sectionId,
-                            },
-                        },
+                attachments: {
+                    connect: uploadResult.payload.files.map((file: { id: string }) => ({
+                        id: file.id
+                    }))
+                },
+                ...(sectionId && {
+                    section: {
+                        connect: { id: sectionId }
                     }
-                }
-            })(),
-            submissions: {
-                create: classToChange.students.map((student: { id: string }) => ({
-                    student: {
-                        connect: {
-                            id: student.id,
-                        },
-                    },
-                })),
-            },
-            teacher: {
-                connect: {
-                    id: userId,
+                }),
+                submissions: {
+                    create: classToChange.students.map((student: { id: string }) => ({
+                        student: {
+                            connect: { id: student.id }
+                        }
+                    }))
                 },
-            },
-        }
-    });
+                teacher: {
+                    connect: { id: userId }
+                }
+            }
+        });
 
-    if (!assignment) {
+        return NextResponse.json({
+            success: true,
+            payload: {
+                remark: ApiResponseRemark.SUCCESS,
+                subject: "Assignment created successfully",
+                assignmentId: assignment.id
+            }
+        });
+    } catch (error) {
+        console.error('Error creating assignment:', error);
         return NextResponse.json({
             success: false,
             payload: {
                 remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
-            },
+                subject: "Failed to create assignment"
+            }
         });
-    }  
-    return NextResponse.json({
-        success: true,
-        payload: {
-            remark: ApiResponseRemark.SUCCESS,
-            subject: "assignment created",
-        },
-    });
+    }
 }
 
+/**
+ * DELETE /api/class/[classId]/assignment
+ * Deletes an assignment from the specified class
+ * 
+ * @param {Request} request - The incoming request object containing assignment ID
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class containing the assignment
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ */
 export async function DELETE(
     request: Request,
     { params }: { params: { classId: string } }
 ): Promise<NextResponse<DefaultApiResponse>> {
-    const classId = params.classId;
+    // Validate request parameters
+    if (!params.classId) {
+        return NextResponse.json({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "classId is required",
+            },
+        });
+    }
 
+    // Get and validate user authentication
     const cookieStore = cookies();
-    const body: DeleteAssignmentRequest = await request.json();
-    const assignmentId = body.id;
-
     const token = cookieStore.get('token')?.value;
-
     const userId = await getUserFromToken(token || null);
 
     if (!userId) {
@@ -202,64 +213,57 @@ export async function DELETE(
             success: false,
             payload: {
                 remark: ApiResponseRemark.UNAUTHORIZED,
-            }
+            },
         });
     }
 
-    const teacherInClass = await userIsTeacherInClass(userId, classId);
+    // Parse and validate request body
+    const body: DeleteAssignmentRequest = await request.json();
+    const { id: assignmentId } = body;
 
+    if (!assignmentId) {
+        return NextResponse.json({
+            success: false,
+            payload: {
+                remark: ApiResponseRemark.BAD_REQUEST,
+                subject: "Assignment ID is required",
+            },
+        });
+    }
+
+    // Verify teacher permissions
+    const teacherInClass = await userIsTeacherInClass(userId, params.classId);
     if (!teacherInClass) {
         return NextResponse.json({
             success: false,
             payload: {
                 remark: ApiResponseRemark.UNAUTHORIZED,
-            }
+                subject: "User must be a teacher in the class",
+            },
         });
     }
 
-    const classToChange = await prisma.class.findFirst({
-        where: {
-            id: classId,
-            teachers: {
-                some: {
-                    id: userId,
-                }
-            }
-        },
-        select: {
-            students: {
-                select: {
-                    id: true,
-                },
-            },
-            teachers: {
-                select: {
-                    id: true,
-                },
-            },
-        },
-    });
+    // Delete the assignment
+    try {
+        await prisma.assignment.delete({
+            where: { id: assignmentId }
+        });
 
-    if (!classToChange) {
+        return NextResponse.json({
+            success: true,
+            payload: {
+                remark: ApiResponseRemark.SUCCESS,
+                subject: "Assignment deleted successfully"
+            }
+        });
+    } catch (error) {
+        console.error('Error deleting assignment:', error);
         return NextResponse.json({
             success: false,
             payload: {
-                remark: ApiResponseRemark.UNAUTHORIZED,
+                remark: ApiResponseRemark.INTERNAL_SERVER_ERROR,
+                subject: "Failed to delete assignment"
             }
         });
     }
-
-    await prisma.assignment.delete({
-        where: {
-            id: assignmentId,
-        }
-    });
-
-    return NextResponse.json({
-        success: true,
-        payload: {
-            remark: ApiResponseRemark.SUCCESS,
-            subject: "assignment deleted",
-        }
-    });
 }

@@ -9,12 +9,18 @@ export type ProcessedResponse<T = {remark: string}> = {
     remark: string;
 }
 
+/**
+ * Handles API promises and standardizes error handling
+ * 
+ * @param {Promise<Response>} fetchPromise - The fetch promise to handle
+ * @returns {Promise<ProcessedResponse<T>>} Processed response with standardized format
+ */
 export async function handleApiPromise<T = {remark: string}>(
     fetchPromise: Promise<Response>,
 ): Promise<ProcessedResponse<T>> {
     try {
         const res = await fetchPromise;
-        const data:  ApiResponse<{ payload: T & { remark: string } }> = await res.json();
+        const data: ApiResponse<T> = await res.json();
         
         return {
             success: data.success,

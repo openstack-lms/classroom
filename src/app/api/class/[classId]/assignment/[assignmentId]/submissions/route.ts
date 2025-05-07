@@ -8,9 +8,39 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
-// GET /api/assignment/[assignmentId]/submissions
-// SECURITY Level 3: Class Teacher
-
+/**
+ * GET /api/class/[classId]/assignment/[assignmentId]/submissions
+ * Retrieves all submissions for a specific assignment
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.assignmentId - The ID of the assignment
+ * @returns {Promise<NextResponse<ApiResponse<GetSubmissionsResponse>>>} List of submissions or error response
+ * 
+ * @example
+ * // Response body
+ * {
+ *   "success": true,
+ *   "payload": {
+ *     "submissions": [
+ *       {
+ *         "id": "submission-id",
+ *         "submittedAt": "2024-03-20T00:00:00.000Z",
+ *         "assignment": {...},
+ *         ...
+ *       }
+ *     ]
+ *   }
+ * }
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ * 
+ * @remarks
+ * - Retrieves all submissions for the specified assignment
+ * - Verifies teacher permissions in the class
+ * - Includes complete submission data with assignment details
+ * - Returns submissions in chronological order
+ */
 export async function GET (_: Request, { params }: { params: { assignmentId: string } }): Promise<NextResponse<ApiResponse<GetSubmissionsResponse>>> {
     const cookieStore = cookies();
     const assignmentId = params.assignmentId;

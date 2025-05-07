@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { BiChevronDown, BiChevronRight } from "react-icons/bi";
 import React from "react";
 import Button from "./Button";
+import Empty from "../Empty";
 
 interface ShelfProps {
     label: React.ReactNode | string;
@@ -29,6 +30,8 @@ const Shelf: React.FC<ShelfProps> = ({ label, content, children }) => {
         }
     }, [opened]);
 
+    const hasChildren = React.Children.count(children) > 0;
+
     return (
         <div className="flex flex-col space-y-1 select-none border border-border dark:border-border-dark px-3 rounded-md shadow-sm transition-all duration-200 ease-in-out">
             <div className="flex justify-between py-3">
@@ -36,7 +39,6 @@ const Shelf: React.FC<ShelfProps> = ({ label, content, children }) => {
                     className="flex flex-row space-x-4 items-center cursor-pointer" 
                 >
                     {opened ? (
-                        // <BiChevronDown onClick={() => setOpened(!opened)} className="text-foreground-muted size-5 transition-transform duration-200 ease-in-out" />
                         <Button.SM onClick={() => setOpened(!opened)}><BiChevronDown /></Button.SM>
                     ) : (
                         <Button.SM onClick={() => setOpened(!opened)}><BiChevronRight /></Button.SM>
@@ -57,7 +59,11 @@ const Shelf: React.FC<ShelfProps> = ({ label, content, children }) => {
                 }}
             >
                 <div ref={contentRef} className="ml-8">
-                    {children}
+                    {hasChildren ? children : (
+                        <div className="py-2">
+                            <Empty message="No items available" />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

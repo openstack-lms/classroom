@@ -8,9 +8,17 @@ import { Announcement, AnnouncementSelectProps, AssignmentSelectArgs, Class, Get
 import { SubmissionSelectArgs } from "@/interfaces/api/Class";
 import { ApiResponseRemark } from "@/lib/ApiResponseRemark";
 
-// GET /api/class/[classId]
-// SECURITY Level 2: Class Teacher or Student
-
+/**
+ * GET /api/class/[classId]
+ * Retrieves detailed information about a specific class
+ * 
+ * @param {Request} _ - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class to retrieve
+ * @returns {Promise<NextResponse<ApiResponse<GetClassResponse>>>} Class data or error response
+ * 
+ * @security Requires authentication. User must be either a teacher or student in the class
+ */
 export async function GET(_: Request, { params }: { params: { classId: string } }): Promise<NextResponse<ApiResponse<GetClassResponse>>> {
     const cookieStore = cookies();
     const token = cookieStore.get("token")?.value;
@@ -214,7 +222,7 @@ export async function PUT(request: Request, { params }: { params: { classId: str
         data: {
             name: body.name,
             subject: body.subject,
-            section: parseInt(body.section),
+            section: body.section,
         },
     });
 
@@ -227,7 +235,17 @@ export async function PUT(request: Request, { params }: { params: { classId: str
     });
 }
 
-
+/**
+ * DELETE /api/class/[classId]
+ * Deletes a specific class
+ * 
+ * @param {Request} request - The incoming request object
+ * @param {Object} params - Route parameters
+ * @param {string} params.classId - The ID of the class to delete
+ * @returns {Promise<NextResponse<DefaultApiResponse>>} Success or error response
+ * 
+ * @security Requires authentication. User must be a teacher in the class
+ */
 export async function DELETE(
     request: Request,
     { params }: { params: { classId: string } }
