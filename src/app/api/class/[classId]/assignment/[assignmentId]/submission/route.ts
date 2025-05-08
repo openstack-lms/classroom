@@ -204,13 +204,16 @@ export async function POST (request: Request, { params }: { params: { assignment
             },
         });
 
-        await prisma.submission.update({
+        const updatedSubmission = await prisma.submission.update({
             where: {
                 id: submissionToChange[0].id,
             },
             data: {
                 submitted: submission?.submitted ? false : true,
                 submittedAt: new Date(),
+            },
+            select: {
+                ...SubmissionSelectArgs,
             },
         });
 
@@ -219,6 +222,7 @@ export async function POST (request: Request, { params }: { params: { assignment
             payload: {
                 remark: ApiResponseRemark.SUCCESS,
                 subject: "submission submitted",
+                submission: updatedSubmission,
             },
         });
     }
@@ -245,20 +249,17 @@ export async function POST (request: Request, { params }: { params: { assignment
         });
     }
 
-
-    await prisma.submission.update({
+    const updatedSubmission = await prisma.submission.update({
         where: {
             id: submissionToChange[0].id,
         },
         data: {
             attachments: {
-                connect: [
-                    ...res.payload.files.map((attachment: { id: string }) => ({id: attachment.id})),
-                ],
-                delete: [
-                    ...body.removedAttachments.map((attachment: { id: string }) => ({id: attachment.id})),
-                ]
+                connect: res.payload.files.map((file: { id: string }) => ({ id: file.id })),
             },
+        },
+        select: {
+            ...SubmissionSelectArgs,
         },
     });
 
@@ -267,6 +268,7 @@ export async function POST (request: Request, { params }: { params: { assignment
         payload: {
             remark: ApiResponseRemark.SUCCESS,
             subject: "submission updated",
+            submission: updatedSubmission,
         },
     });
 }

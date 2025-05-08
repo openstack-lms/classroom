@@ -58,7 +58,7 @@ export async function POST(
         });
     }
 
-    await prisma.section.create({
+    const section = await prisma.section.create({
         data: {
             name: body.name,
             class: {
@@ -74,6 +74,7 @@ export async function POST(
         payload: {
             remark: ApiResponseRemark.SUCCESS,
             subject: "section created",
+            section: section,
         },
     });
 }
@@ -128,7 +129,7 @@ export async function PUT(
         });
     }
 
-    await prisma.section.update({
+    const section = await prisma.section.update({
         where: {
             id: body.id,
         },
@@ -142,6 +143,7 @@ export async function PUT(
         payload: {
             remark: ApiResponseRemark.SUCCESS,
             subject: "section edited",
+            section: section,
         },
     });
 }
@@ -195,7 +197,7 @@ export async function DELETE(
         });
     }
 
-    await prisma.section.delete({
+    const section = await prisma.section.delete({
         where: {
             id: body.id,
         },
@@ -206,6 +208,7 @@ export async function DELETE(
         payload: {
             remark: ApiResponseRemark.SUCCESS,
             subject: "section deleted",
+            section: section,
         },
     });
 }

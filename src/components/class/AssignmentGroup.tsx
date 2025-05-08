@@ -10,6 +10,7 @@ import Input from "../util/Input";
 import { Assignment as AssignmentType, DeleteSectionRequest, UpdateSectionRequest } from "@/interfaces/api/Class";
 import { DefaultApiResponse } from "@/interfaces/api/Response";
 import EditableLabel from "../util/abstractions/EditableLabel";
+import { emitSectionDelete, emitSectionUpdate } from "@/lib/socket";
 
 export default function AssignmentGroup ({
     classId,
@@ -50,6 +51,7 @@ export default function AssignmentGroup ({
                                     remark: data.payload.remark,
                                 }));
                                 dispatch(setRefetch(true));
+                                emitSectionDelete(classId, section.id);
                             } else {
                                 dispatch(addAlert({
                                     level: AlertLevel.ERROR,
@@ -73,36 +75,39 @@ export default function AssignmentGroup ({
                 value={sectionName}
                 editing={editing}
                 onChange={(e) => {
-                        setSectionName(e.target.value);
+                    const newValue = e.target.value;
+                    setSectionName(newValue);
 
-                        fetch(`/api/class/${classId}/section`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                id: section.id,
-                                name: e.target.value,
-                            } as UpdateSectionRequest),
-                        })
-                            .then(res => res.json())
-                            .then((data: DefaultApiResponse) => {
-                                if (data.success) {
-                                    dispatch(setRefetch(true));
-                                } else {
-                                    dispatch(addAlert({
-                                        level: AlertLevel.ERROR,
-                                        remark: data.payload.remark,
-                                    }));
-                                }
-                            })
-                            .catch(_ => {
+                    fetch(`/api/class/${classId}/section`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: section.id,
+                            name: newValue,
+                        } as UpdateSectionRequest),
+                    })
+                        .then(res => res.json())
+                        .then((data: DefaultApiResponse) => {
+                            if (data.success) {
+                                dispatch(setRefetch(true));
+                                emitSectionUpdate(classId, section.id);
+                            } else {
                                 dispatch(addAlert({
                                     level: AlertLevel.ERROR,
-                                    remark: "Please try again later",
+                                    remark: data.payload.remark,
                                 }));
-                            });
-                    }}
+                            }
+                        })
+                        .catch(_ => {
+                            dispatch(addAlert({
+                                level: AlertLevel.ERROR,
+                                remark: "Please try again later",
+                            }));
+                        });
+                }}
+                onBlur={() => setEditing(false)}
             />
             {/* {
                 (editing) ? (
@@ -146,9 +151,9 @@ export default function AssignmentGroup ({
             } */}
         </>
     }>
-        {assignments && assignments.filter((assignment: any) => assignment && assignment.section && assignment.section.id == section.id).map((assignment: any, index: number) => (
+        {assignments && assignments.filter((assignment: any) => assignment && assignment.section && assignment.section.id == section.id).map((assignment: any) => (
             <Assignment
-                key={index}
+                key={assignment.id}
                 title={assignment.title}
                 date={assignment.dueDate}
                 isTeacher={isTeacher}
@@ -157,7 +162,7 @@ export default function AssignmentGroup ({
                 late={assignment.late}
                 submitted={assignment.submitted}
                 returned={assignment.returned}
-                 />
+            />
         ))}
         </Shelf>)
 }

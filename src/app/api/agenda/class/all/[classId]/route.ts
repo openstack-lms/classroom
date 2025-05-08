@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-export async function GET (request: Request, { params }: { params: { classId: string }}): Promise<NextResponse<ApiResponse<{events: ClassEvent[]}>>> {
+export async function GET(request: Request, { params }: { params: { classId: string } }): Promise<NextResponse<ApiResponse<{ events: ClassEvent[] }>>> {
     const cookieStore = cookies();
 
     const token = cookieStore.get('token')?.value;
@@ -26,11 +26,22 @@ export async function GET (request: Request, { params }: { params: { classId: st
         where: {
             class: {
                 id: params.classId,
-                teachers: {
-                    some: {
-                        id: userId,
+                OR: [
+                    {
+                        teachers: {
+                            some: {
+                                id: userId,
+                            }
+                        },
+                    },
+                    {
+                        students: {
+                            some: {
+                                id: userId,
+                            }
+                        }
                     }
-                }
+                ]
             }
         },
         select: {

@@ -51,11 +51,22 @@ export async function GET(
   const classData = await prisma.class.findUnique({
     where: {
       id: params.classId,
-      teachers: {
-        some: {
-          id: userId,
+      OR: [
+        {
+          teachers: {
+            some: {
+              id: userId,
+            },
+          },
         },
-      },
+        {
+          students: {
+            some: {
+              id: userId,
+            },
+          },
+        },
+      ],
     },
   });
 

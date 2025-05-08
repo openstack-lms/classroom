@@ -186,7 +186,7 @@ const Input = {
         // Update display value when value changes
         useEffect(() => {
             const selectedOption = searchList.find(option => option.value === value);
-            setDisplayValue(selectedOption?.label || value || '');
+            setDisplayValue(selectedOption?.label || value?.toString() || '');
         }, [value, searchList]);
 
         useEffect(() => {

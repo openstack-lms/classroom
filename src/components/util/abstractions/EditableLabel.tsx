@@ -19,33 +19,42 @@ const EditableLabel: React.FC<EditableLabelProps> = ({
     onChange,
     onBlur
 }) => {
-    const [isEditing, setIsEditing] = useState(editing);
+    const [tempValue, setTempValue] = useState(value);
 
     useEffect(() => {
-        setIsEditing(editing);
-    }, [editing]);
+        setTempValue(value);
+    }, [value]);
 
-    if (isEditing) {
+    if (editing) {
         return (
             <div className="flex flex-row items-center space-x-2">
                 <Input.Small
-                    value={value}
-                    onChange={onChange}
+                    value={tempValue}
+                    onChange={(e) => {
+                        setTempValue(e.target.value);
+                    }}
                     onBlur={() => {
-                        setIsEditing(false);
+                        // Save changes when input loses focus
+                        onChange({
+                            target: {
+                                value: tempValue
+                            }
+                        } as React.ChangeEvent<HTMLInputElement>);
                         onBlur?.();
                     }}
                 />
-                <Button.SM onClick={() => setIsEditing(false)}><HiCheck /></Button.SM>
+                <Button.SM onClick={() => {
+                    onChange({
+                        target: {
+                            value: tempValue
+                        }
+                    } as React.ChangeEvent<HTMLInputElement>);
+                }}><HiCheck /></Button.SM>
             </div>
         );
     }
 
-    return (
-        <button onDoubleClick={() => setIsEditing(true)}>
-            {label}
-        </button>
-    );
+    return <span>{label}</span>;
 };
 
 export default EditableLabel;

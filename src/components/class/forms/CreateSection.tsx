@@ -10,6 +10,7 @@ import Input from "../../util/Input";
 import { CreateSectionRequest } from "@/interfaces/api/Class";
 import { DefaultApiResponse } from "@/interfaces/api/Response";
 import { handleApiPromise } from "@/lib/handleApiPromise";
+import { emitSectionCreate } from "@/lib/socket";
 
 export default function CreateSection({ classId }: Readonly<{
     classId: string,
@@ -31,10 +32,13 @@ export default function CreateSection({ classId }: Readonly<{
                     },
                     body: JSON.stringify({ name: name } as CreateSectionRequest),
                 }))
-                .then(({ success, level, remark }) => {
+                .then(({ success, level, remark, payload }) => {
                     dispatch(addAlert({ level, remark }));
-                    if (success) {
+                    if (success && payload) {
                         dispatch(setRefetch(true));
+                        setName('');
+                        emitSectionCreate(classId, payload.section);
+                        dispatch(closeModal());
                     }
                 });
             }}>Create</Button.Primary>

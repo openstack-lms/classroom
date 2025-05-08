@@ -154,6 +154,13 @@ export async function POST(
                 teacher: {
                     connect: { id: userId }
                 }
+            },
+            include: {
+                submissions: true,
+                attachments: true,
+                section: true,
+                teacher: true,
+                class: true
             }
         });
 
@@ -162,7 +169,8 @@ export async function POST(
             payload: {
                 remark: ApiResponseRemark.SUCCESS,
                 subject: "Assignment created successfully",
-                assignmentId: assignment.id
+                assignmentId: assignment.id,
+                assignment: assignment
             }
         });
     } catch (error) {

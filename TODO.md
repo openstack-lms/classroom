@@ -16,10 +16,15 @@
 - [ ] Standardize data cleaning processes
 - [ ] Create unified API response handler
 - [ ] Replace current file upload with existing API
-- [ ] Improve search algorithm for global entities
-  - [ ] Members search optimization
-  - [ ] Classes search enhancement
+- [x] Improve search algorithm for global entities
+  - [x] Members search optimization
+  - [x] Classes search enhancement
   - [ ] Resources search implementation
+- [ ] Implement CSRF protection
+  - [ ] Add CSRF middleware
+  - [ ] Implement token generation and validation
+  - [ ] Update API routes with CSRF checks
+  - [ ] Add client-side CSRF token handling
 
 ### File System Enhancement
 - [ ] Implement advanced file handling system

@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { v4 } from "uuid";
 import ProfilePicture from "@/components/util/ProfilePicture";
 import FileEdit from "@/components/class/FileEdit";
+import { initializeSocket, joinClass, leaveClass } from "@/lib/socket";
 
 export default function _Assignment({ params }: { params: { classId: string, assignmentId: string } }) {
     const [assignmentProps, setAssignmentProps] = useState<Assignment | null>(null);
@@ -139,6 +140,58 @@ export default function _Assignment({ params }: { params: { classId: string, ass
             });
 
     }, [submissionData])
+
+    // Socket connection and event handling
+    useEffect(() => {
+        const socket = initializeSocket();
+        
+        // Join the class room
+        joinClass(params.classId);
+
+        // Handle submission updates
+        socket.on('submission-updated', (updatedSubmission: Submission, ack) => {
+            if (appState.user.teacher) {
+                // Update the submissions list for teachers
+                setSubmissionsData(prevSubmissions => {
+                    if (!prevSubmissions) return [updatedSubmission];
+                    
+                    const index = prevSubmissions.findIndex(s => s.id === updatedSubmission.id);
+                    if (index === -1) {
+                        return [...prevSubmissions, updatedSubmission];
+                    }
+                    
+                    const newSubmissions = [...prevSubmissions];
+                    newSubmissions[index] = updatedSubmission;
+                    return newSubmissions;
+                });
+            } else {
+                // Update the student's submission
+                setSubmissionData(prevData => {
+                    if (!prevData) return { 
+                        ...updatedSubmission, 
+                        refetch: false, 
+                        newAttachments: [], 
+                        removedAttachments: [],
+                        return: false,
+                        gradeReceived: updatedSubmission.gradeReceived || 0,
+                    };
+                    return { 
+                        ...prevData, 
+                        ...updatedSubmission,
+                        return: prevData.return,
+                        gradeReceived: updatedSubmission.gradeReceived || prevData.gradeReceived || 0,
+                    };
+                });
+            }
+            if (ack) ack();
+        });
+
+        // Cleanup on unmount
+        return () => {
+            leaveClass(params.classId);
+            socket.off('submission-updated');
+        };
+    }, [params.classId, appState.user.teacher]);
 
     return (
         <div className="mx-auto">

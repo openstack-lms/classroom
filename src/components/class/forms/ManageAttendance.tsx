@@ -8,6 +8,7 @@ import { handleApiPromise } from "@/lib/handleApiPromise";
 import Loading from "@/components/Loading";
 import Empty from "@/components/util/Empty";
 import { HiDocumentText } from "react-icons/hi";
+import { emitAttendanceUpdate } from "@/lib/socket";
 
 interface Student {
     id: string;
@@ -130,7 +131,7 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
                 : attendance.absent.filter(s => s.id !== studentId),
         };
 
-        const response = await handleApiPromise<ApiResponse<GetAttendanceResponse>>(
+        const response = await handleApiPromise<GetAttendanceResponse>(
             fetch(`/api/class/${classId}/attendance`, {
                 method: 'PUT',
                 headers: {
@@ -140,25 +141,12 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
             })
         );
 
-        if (response.success) {
-            // Fetch the updated attendance record
-            const updatedResponse = await handleApiPromise<ApiResponse<GetAttendanceResponse>>(
-                fetch(`/api/class/${classId}/attendance?eventId=${eventId}`)
-            );
-            
-            if (updatedResponse.success && 'attendance' in updatedResponse.payload && Array.isArray(updatedResponse.payload.attendance) && updatedResponse.payload.attendance.length > 0) {
-                setAttendance(updatedResponse.payload.attendance[0]);
-                dispatch(addAlert({
-                    level: AlertLevel.SUCCESS,
-                    remark: 'Attendance updated successfully',
-                }));
-                dispatch(setRefetch(true));
-            }
+        if (response.success && response.payload.attendance?.[0]) {
+            setAttendance(response.payload.attendance[0]);
+            // Emit socket event for real-time updates
+            emitAttendanceUpdate(classId, response.payload.attendance[0]);
         } else {
-            dispatch(addAlert({
-                level: AlertLevel.ERROR,
-                remark: response.remark,
-            }));
+            dispatch(addAlert({ level: response.level, remark: response.remark }));
         }
     };
 

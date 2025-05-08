@@ -31,9 +31,14 @@ const Button = {
         onClick?: () => void,
         [key: string]: any,
     }>) => {
-        return (<a onClick={onClick} {...props} className={`transition-colors duration-200 ease-in-out ${props.className ? props.className : 'text-foreground hover:text-foreground-muted'}`}>
+        return (<button 
+            type="button"
+            onClick={onClick} 
+            {...props} 
+            className={`transition-colors duration-200 ease-in-out ${props.className ? props.className : 'text-foreground hover:text-foreground-muted'}`}
+        >
             {children}
-        </a>);
+        </button>);
     }
 }
 
