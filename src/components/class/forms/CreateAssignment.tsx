@@ -12,6 +12,7 @@ import Input from "../../util/Input";
 import FileEdit from "../FileEdit";
 import { CreateAssignmentRequest } from "@/interfaces/api/Class";
 import { handleApiPromise } from "@/lib/handleApiPromise";
+import { emitAssignmentCreate } from "@/lib/socket";
 
 export default function CreateAssignment({ classId, sections }: { classId: string, sections: any }) {
     const dispatch = useDispatch();
@@ -27,6 +28,53 @@ export default function CreateAssignment({ classId, sections }: { classId: strin
         maxGrade: 0,
         weight: 1,
     });
+
+    const handleCreateAssignment = async () => {
+        dispatch(addAlert({
+            level: AlertLevel.SUCCESS,
+            remark: 'Creating assignment',
+        }));
+
+        try {
+            const result = await handleApiPromise(
+                fetch(`/api/class/${classId}/assignment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ...assignmentData,
+                        files: assignmentData.files,
+                    } as CreateAssignmentRequest),
+                })
+            );
+            
+            dispatch(addAlert({ level: result.level, remark: result.remark }));
+
+            if (result.success && result.payload) {
+                // Emit socket event after successful creation
+                emitAssignmentCreate(classId, result.payload.assignment);
+                
+                dispatch(setRefetch(true));
+                dispatch(closeModal());
+                setAssignmentData({
+                    files: [],
+                    dueDate: new Date(),
+                    instructions: '',
+                    title: '',
+                    graded: false,
+                    maxGrade: 0,
+                    weight: 1,
+                });
+            }
+        } catch (error) {
+            console.error('Error creating assignment:', error);
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: 'Failed to create assignment',
+            }));
+        }
+    };
 
     return (<div
         className="w-[50rem] flex flex-col space-y-5">
@@ -130,39 +178,7 @@ export default function CreateAssignment({ classId, sections }: { classId: strin
                    
                     <Button.Primary type="submit"
                     className="bg-black hover:bg-gray-800 text-white px-3 py-2 rounded-md"
-                    onClick={() => {
-                        dispatch(addAlert({
-                            level: AlertLevel.SUCCESS,
-                            remark: 'Creating assignment',
-                        }));
-
-                        handleApiPromise(fetch(`/api/class/${classId}/assignment`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                ...assignmentData,
-                                files: assignmentData.files,
-                            } as CreateAssignmentRequest),
-                        }))
-                        .then(({ success, payload, level, remark }) => {
-                            dispatch(addAlert({ level, remark }));
-                            if (success) {
-                                dispatch(setRefetch(true));
-                                dispatch(closeModal());
-                                setAssignmentData({
-                                    files: [],
-                                    dueDate: new Date(),
-                                    instructions: '',
-                                    title: '',
-                                    graded: false,
-                                    maxGrade: 0,
-                                    weight: 1,
-                                });
-                            }
-                        });
-                    }}
+                    onClick={handleCreateAssignment}
                     >Create</Button.Primary>
                 </div>
         </div>

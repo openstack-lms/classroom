@@ -34,15 +34,15 @@ export default function ClassSidebar({ teacher, classId }: { teacher: boolean, c
             label: "Grades",
             href: teacher ? `/classes/${classId}/grades` : `/classes/${classId}/grades/${appState.user.id}`,
         },
-        ...(teacher ? [{
-            icon: <HiPencil className="size-5" />,
-            label: "Settings",
-            href: `/classes/${classId}/settings`,
-        },
         {
             icon: <HiCalendar className="size-5" />,
             label: "Attendance",
             href: `/classes/${classId}/attendance`,
+        },
+        ...(teacher ? [{
+            icon: <HiPencil className="size-5" />,
+            label: "Settings",
+            href: `/classes/${classId}/settings`,
         },
         ] : []),
     ];

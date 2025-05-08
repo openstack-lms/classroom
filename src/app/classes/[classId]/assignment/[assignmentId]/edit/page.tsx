@@ -15,6 +15,8 @@ import { RootState } from "@/store/store";
 import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { v4 } from "uuid";
+import { emitAssignmentUpdate } from "@/lib/socket";
+import { joinClass } from "@/lib/socket";
 
 
 export default function _Assignment({ params }: { params: { classId: string, assignmentId: string } }) {
@@ -44,6 +46,8 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                     setClassId(payload.classId);
                     dispatch(setRefetch(false));
                     setIsSaved(true);
+                    joinClass(payload.classId);
+                    emitAssignmentUpdate(payload.classId, payload.assignmentData);  
                 } else {
                     dispatch(addAlert({ level, remark }));
                 }

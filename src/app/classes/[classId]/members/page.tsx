@@ -13,6 +13,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { handleApiPromise } from "@/lib/handleApiPromise";
 import Empty from "@/components/util/Empty";
 import ProfilePicture from "@/components/util/ProfilePicture";
+import { initializeSocket, joinClass, leaveClass, emitMemberUpdate, emitMemberDelete } from "@/lib/socket";
 
 type Member = {
     id: string;
@@ -41,7 +42,7 @@ const MemberCard = ({ member, isCurrentUser, isTeacher, classId, onUpdate }: {
         dispatch(addAlert({ level, remark }));
         
         if (success) {
-            dispatch(setRefetch(true));
+            emitMemberUpdate(classId, { ...member, type: newType });
             onUpdate();
         }
     };
@@ -57,6 +58,7 @@ const MemberCard = ({ member, isCurrentUser, isTeacher, classId, onUpdate }: {
 
             if (data.success) {
                 dispatch(addAlert({ level: AlertLevel.SUCCESS, remark: 'User removed successfully' }));
+                emitMemberDelete(classId, member.id);
                 onUpdate();
             } else {
                 dispatch(addAlert({ level: AlertLevel.ERROR, remark: data.remark }));
@@ -130,6 +132,56 @@ export default function Members({ params }: { params: { classId: string } }) {
             dispatch(setRefetch(false));
         }
     }, [appState.refetch, dispatch]);
+
+    useEffect(() => {
+        const socket = initializeSocket();
+        
+        joinClass(classId);
+
+        socket.on('member-updated', (updatedMember: Member) => {
+            setMembers(prevMembers => {
+                if (!prevMembers) return { teachers: [], students: [] };
+                
+                const isTeacher = updatedMember.type === 'teacher';
+                const list = isTeacher ? prevMembers.teachers : prevMembers.students;
+                const otherList = isTeacher ? prevMembers.students : prevMembers.teachers;
+                
+                const index = list.findIndex(m => m.id === updatedMember.id);
+                if (index === -1) {
+                    const newList = [...list, updatedMember];
+                    const newOtherList = otherList.filter(m => m.id !== updatedMember.id);
+                    return {
+                        teachers: isTeacher ? newList : newOtherList,
+                        students: isTeacher ? newOtherList : newList
+                    };
+                }
+                
+                const newList = [...list];
+                newList[index] = updatedMember;
+                return {
+                    teachers: isTeacher ? newList : prevMembers.teachers,
+                    students: isTeacher ? prevMembers.students : newList
+                };
+            });
+        });
+
+        socket.on('member-deleted', (deletedMemberId: string) => {
+            setMembers(prevMembers => {
+                if (!prevMembers) return { teachers: [], students: [] };
+                
+                return {
+                    teachers: prevMembers.teachers.filter(m => m.id !== deletedMemberId),
+                    students: prevMembers.students.filter(m => m.id !== deletedMemberId)
+                };
+            });
+        });
+
+        return () => {
+            leaveClass(classId);
+            socket.off('member-updated');
+            socket.off('member-deleted');
+        };
+    }, [classId]);
 
     const fetchMembers = async () => {
         const { success, payload, level, remark } = await handleApiPromise<GetClassResponse>(

@@ -47,11 +47,22 @@ export async function POST(request: Request, { params }: { params: { classId: st
     const classToChange = await prisma.class.findUnique({
         where: {
             id: params.classId,
-            teachers: {
-                some: {
-                    id: userId,
-                }
-            }
+            OR: [
+                {
+                    teachers: {
+                        some: {
+                            id: userId,
+                        }
+                    }
+                },
+                // {
+                //     students: {
+                //         some: {
+                //             id: userId,
+                //         }
+                //     }
+                // },
+            ],
         }
     });
 
@@ -67,7 +78,7 @@ export async function POST(request: Request, { params }: { params: { classId: st
 
     const body: CreateAnnouncementProps = await request.json();
 
-    await prisma.announcement.create({
+    const announcement = await prisma.announcement.create({
         data: {
             remarks: body.remarks,
             teacher: {
@@ -81,6 +92,9 @@ export async function POST(request: Request, { params }: { params: { classId: st
                 },
             },
         },
+        select: {
+            ...AnnouncementSelectProps,
+        },
     });
 
     return NextResponse.json({
@@ -88,6 +102,7 @@ export async function POST(request: Request, { params }: { params: { classId: st
         payload: {
             remark: ApiResponseRemark.SUCCESS,
             subject: "announcement created",
+            announcement: announcement,
         }
     });
 }

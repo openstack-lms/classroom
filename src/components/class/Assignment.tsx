@@ -1,12 +1,11 @@
 import IconFrame from "../util/IconFrame";
 import Button from "../util/Button";
 import { addAlert, setRefetch } from "@/store/appSlice";
-import { AlertLevel } from "@/lib/alertLevel";
 import { useDispatch } from "react-redux";
-import { DefaultApiResponse } from "@/interfaces/api/Response";
 import Badge from "../Badge";
 import { handleApiPromise, ProcessedResponse } from "@/lib/handleApiPromise";
 import { HiDocumentText, HiPencil, HiTrash } from "react-icons/hi";
+import { emitAssignmentDelete } from "@/lib/socket";
 
 interface AssignmentProps {
     title: string;
@@ -63,6 +62,7 @@ export default function Assignment({
                             remark: remark,
                         }));
                         if (success) {
+                            emitAssignmentDelete(classId, assignmentId);
                             dispatch(setRefetch(true));
                         }
                     })
