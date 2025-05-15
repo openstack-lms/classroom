@@ -1,10 +1,16 @@
 {
-  "name": "easy-lms",
+  "name": "studious",
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "install": "npm run install:all",
+    "install:all": "npm install && npm run install:server && npm run install:client",
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "cd server && prisma generate && tsc",
+    "build:client": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "NODE_ENV=test jest",
