@@ -3,3 +3,6 @@
 .env
 package-lock.json
 generated/
+generated/**
+**/generated/
+**/generated/**
