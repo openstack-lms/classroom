@@ -2,8 +2,8 @@
 
 import { HiAcademicCap, HiArrowRight, HiCalendar, HiClipboard, HiUserGroup, HiChat, HiDocumentText } from "react-icons/hi";
 import Link from "next/link";
-import Button from "@/components/util/Button";
-import Input from "@/components/util/Input";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { useState } from "react";
 
 const features = [

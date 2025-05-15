@@ -1,57 +1,19 @@
 "use client";
 
 import CreateEvent from "@/components/class/forms/CreateEvent";
-import UpdatePersonalEvent from "@/components/class/forms/UpdatePersonalEvent";
-import UpdateClassEvent from "@/components/class/forms/UpdateClassEvent";
-import Button from "@/components/util/Button";
-import Calendar from "@/components/util/Calendar";
-import Input from "@/components/util/Input";
-import { ClassEvent, GetAgendaResponse, PersonalEvent } from "@/interfaces/api/Agenda";
-import { DefaultApiResponse } from "@/interfaces/api/Response";
-import { AlertLevel } from "@/lib/alertLevel";
-import { fmtTime, getTimeDifferenceInHours } from "@/lib/time";
-import { addAlert, closeModal, openModal, setRefetch } from "@/store/appSlice";
-import { RootState } from "@/store/store";
+import Button from "@/components/ui/Button";
+import Calendar from "@/components/ui/Calendar";
+import { splitMultiDayEvent } from "@/lib/splitMultiDayEvent";
+import { openModal, setRefetch } from "@/store/appSlice";
 import { useEffect, useRef, useState } from "react";
 import { HiAcademicCap, HiClock, HiPencil, HiTrash, HiX } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
 import Event from "@/components/class/Event";
-import { handleApiPromise } from "@/lib/handleApiPromise";
+import { trpc } from "@/utils/trpc";
+import type { RouterOutputs } from "@server/routers/_app";
 
-function splitMultiDayEvent<T extends PersonalEvent | ClassEvent>(event: T): T[] {
-    const start = new Date(event.startTime);
-    const end = new Date(event.endTime);
-    
-    // If event is within same day, return as is
-    if (start.getUTCDate() === end.getUTCDate() && 
-        start.getUTCMonth() === end.getUTCMonth() && 
-        start.getUTCFullYear() === end.getUTCFullYear()) {
-        return [event];
-    }
-
-    const events: T[] = [];
-    let currentDate = new Date(start);
-
-    while (currentDate <= end) {
-        const nextDay = new Date(currentDate);
-        nextDay.setUTCDate(currentDate.getUTCDate() + 1);
-        nextDay.setUTCHours(0, 0, 0, 0);
-
-        const splitEvent = {
-            ...event,
-            startTime: currentDate.toISOString(),
-            endTime: currentDate.getUTCDate() === end.getUTCDate() ? 
-                end.toISOString() : 
-                nextDay.toISOString()
-        } as T;
-
-        events.push(splitEvent);
-
-        currentDate = nextDay;
-    }
-
-    return events;
-}
+type PersonalEvent = RouterOutputs['agenda']['get']['events']['personal'][number];
+type ClassEvent = RouterOutputs['agenda']['get']['events']['class'][number];
 
 export default function Agenda() {
     const [weekDays, setWeekDays] = useState<Date[]>([]);
@@ -61,7 +23,7 @@ export default function Agenda() {
         personal: PersonalEvent[],
         class: ClassEvent[],
     }>();
-    const appState = useSelector((state: RootState) => state.app);
+    const dispatch = useDispatch();
 
     const WEEKDAY_LABELS = [
         'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'
@@ -72,41 +34,34 @@ export default function Agenda() {
         if (eventComponent && eventComponent.current) eventComponent.current.scrollTop = 80 * 8;
     }, []);
 
+    const { data: agendaData } = trpc.agenda.get.useQuery(
+        {
+            weekStart: weekDays[0]?.toISOString() || new Date().toISOString(),
+        },
+        {
+            enabled: weekDays.length > 0,
+        }
+    );
+
     useEffect(() => {
-        if (!weekDays.length) return;
-
-        // Ensure we're using UTC ISO string and handling it properly
-        const weekStart = new Date(weekDays[0]);
-        weekStart.setUTCHours(0, 0, 0, 0);
-
-        handleApiPromise<GetAgendaResponse>(fetch(`/api/agenda/${weekStart.toISOString()}`))
-            .then(({ success, payload, level, remark }) => {
-                if (success) {
-                    const processedEvents = {
-                        personal: payload.events.personal.flatMap(event => splitMultiDayEvent(event)),
-                        class: payload.events.class.flatMap(event => splitMultiDayEvent(event))
-                    };
-                    setEvents(processedEvents);
-                    dispatch(setRefetch(false));
-                } else {
-                    dispatch(addAlert({ level, remark }));
-                }
-            });
-    }, [weekDays, appState.refetch]);
-
-
-    const dispatch = useDispatch();
+        if (agendaData) {
+            const processedEvents = {
+                personal: agendaData.events.personal.flatMap((event: PersonalEvent) => splitMultiDayEvent(event)),
+                class: agendaData.events.class.flatMap((event: ClassEvent) => splitMultiDayEvent(event))
+            };
+            setEvents(processedEvents);
+            dispatch(setRefetch(false));
+        }
+    }, [agendaData, dispatch]);
 
     return (
         <div className="flex flex-row ml-12 pt-5">
-
             {/* sidebar */}
             <div className="flex flex-col w-[17rem] shrink-0">
                 <Calendar onChange={(e) => {
                     setWeekDays(e.week!);
                     setSelectedDay(((new Date(Date.UTC(e.year, e.month, e.day)).getDay() - 1) > -1) ? (new Date(Date.UTC(e.year, e.month, e.day)).getDay() - 1) : 6);
                 }} />
-
             </div>
 
             <div className="w-full flex flex-col space-y-3 overflow-x-visible">
@@ -175,16 +130,13 @@ export default function Agenda() {
                                                     spacingPerHour={spacingPerHour} />
                                             ))
                                         }
-                                        
                                     </div>
                                 </div>
                             ))
                         }
-                        
                     </div>
                 </div>
             </div>
-
         </div>
     );
 }

@@ -11,8 +11,8 @@ import {
     HiMusicNote,
     HiDatabase
 } from "react-icons/hi";
-import Button from "../util/Button";
-import IconFrame from "../util/IconFrame";
+import Button from "../ui/Button";
+import IconFrame from "../ui/IconFrame";
 import { useState } from "react";
 import { getFileIconInfo } from "@/lib/fileTypes";
 

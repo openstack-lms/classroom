@@ -6,79 +6,74 @@ import { useDispatch, useSelector } from "react-redux";
 import { addAlert } from "@/store/appSlice";
 import { AlertLevel } from "@/lib/alertLevel";
 import Loading from "@/components/Loading";
-import Input from "@/components/util/Input";
-import { GetClassResponse, UpdateClassRequest } from "@/interfaces/api/Class";
-import { ApiResponse, DefaultApiResponse } from "@/interfaces/api/Response";
-import { SUBJECT_OPTIONS, SECTION_OPTIONS } from "@/components/util/commonData";
+import Input from "@/components/ui/Input";
+import { UpdateClassRequest } from "@/interfaces/api/Class";
+import { SUBJECT_OPTIONS, SECTION_OPTIONS } from "@/components/ui/commonData";
+import { trpc } from "@/utils/trpc";
 
-export default function Assignments ({ params }: { params: { classId: string }}) {
+export default function Assignments({ params }: { params: { classId: string } }) {
     const classId = params.classId;
-
     const appState = useSelector((state: RootState) => state.app);
     const dispatch = useDispatch();
     
     const [classProps, setClassProps] = useState<UpdateClassRequest | null>(null);
 
+    // Get class data
+    const { data: classData, isLoading } = trpc.class.get.useQuery({ classId });
+
+    // Update class mutation
+    const updateClass = trpc.class.update.useMutation({
+        onError: (error) => {
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: error.message,
+            }));
+        }
+    });
+
     useEffect(() => {
-        fetch(`/api/class/${classId}`, {
-            method: 'GET',
-        })
-        .then(res => res.json())
-        .then((data: ApiResponse<GetClassResponse>) => {
-            if (data.success) {
-                setClassProps({
-                    id: (data.payload as GetClassResponse).classData.id,
-                    name: (data.payload as GetClassResponse).classData.name,
-                    section: (data.payload as GetClassResponse).classData.section.toString(), // @todo fix
-                    subject: (data.payload as GetClassResponse).classData.subject,
-                })
-            }
-        })
-    }, [appState.refetch])
+        if (classData?.class) {
+            setClassProps({
+                id: classData.class.id,
+                name: classData.class.name,
+                section: classData.class.section.toString(),
+                subject: classData.class.subject,
+            });
+        }
+    }, [classData]);
 
     useEffect(() => {
         if (!classProps) return;
 
-        fetch(`/api/class/${classId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(classProps as UpdateClassRequest),
-        })
-        .then(res => res.json())
-        .then((data: DefaultApiResponse) => {
-            if (!data.success) {
-                dispatch(addAlert({
-                    level: AlertLevel.ERROR,
-                    remark: data.payload.remark,
-                }))
-            }
-        })
+        updateClass.mutate({
+            classId,
+            name: classProps.name,
+            section: classProps.section,
+            subject: classProps.subject,
+        });
+    }, [classProps]);
 
-    }, [classProps])
-
-    if (!classProps) {
+    if (isLoading || !classProps) {
         return <div className="flex justify-center items-center h-screen w-full">
             <Loading />
-        </div>
+        </div>;
     }
 
     return (<div className="flex flex-col space-y-5 w-[40rem]">
-            <Input.Text
-                label="Class Name"
-                type="text"
-                value={classProps.name}
-                onChange={(e) => setClassProps({ ...classProps, name: e.target.value })} />
-            <Input.SearchableSelect
-                label="Class Section"
-                value={classProps.section}
-                searchList={SECTION_OPTIONS}
-                onChange={(e) => setClassProps({ ...classProps, section: e.target.value })} />
-            <Input.SearchableSelect
-                label="Class Subject"
-                value={classProps.subject}
-                searchList={SUBJECT_OPTIONS}
-                onChange={(e) => setClassProps({ ...classProps, subject: e.target.value })} />
+        <Input.Text
+            label="Class Name"
+            type="text"
+            value={classProps.name}
+            onChange={(e) => setClassProps({ ...classProps, name: e.target.value })} />
+        <Input.SearchableSelect
+            label="Class Section"
+            value={classProps.section}
+            searchList={SECTION_OPTIONS}
+            onChange={(e) => setClassProps({ ...classProps, section: e.target.value })} />
+        <Input.SearchableSelect
+            label="Class Subject"
+            value={classProps.subject}
+            searchList={SUBJECT_OPTIONS}
+            onChange={(e) => setClassProps({ ...classProps, subject: e.target.value })} />
     </div>);
 }

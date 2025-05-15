@@ -1,11 +1,12 @@
-import IconFrame from "../util/IconFrame";
-import Button from "../util/Button";
+import IconFrame from "../ui/IconFrame";
+import Button from "../ui/Button";
 import { addAlert, setRefetch } from "@/store/appSlice";
 import { useDispatch } from "react-redux";
 import Badge from "../Badge";
-import { handleApiPromise, ProcessedResponse } from "@/lib/handleApiPromise";
 import { HiDocumentText, HiPencil, HiTrash } from "react-icons/hi";
 import { emitAssignmentDelete } from "@/lib/socket";
+import { trpc } from "@/utils/trpc";
+import { AlertLevel } from "@/lib/alertLevel";
 
 interface AssignmentProps {
     title: string;
@@ -30,6 +31,17 @@ export default function Assignment({
 }: AssignmentProps) {
     const dispatch = useDispatch();
 
+    const { mutate: deleteAssignment } = trpc.assignment.delete.useMutation({
+        onSuccess: () => {
+            emitAssignmentDelete(classId, assignmentId);
+            dispatch(addAlert({ level: AlertLevel.SUCCESS, remark: "Assignment deleted successfully" }));
+            dispatch(setRefetch(true));
+        },
+        onError: (error) => {
+            dispatch(addAlert({ level: AlertLevel.ERROR, remark: error.message }));
+        }
+    });
+
     return (<div className="py-3 flex justify-between">
         <div className="flex flex-row space-x-4 items-center">
             <IconFrame>
@@ -44,28 +56,19 @@ export default function Assignment({
         </div>
         {!isTeacher && (
             <div className="flex flex-row space-x-3 items-center">
-                {late && <Badge color="error">Late</Badge>}
-                {submitted && !returned &&<Badge color="success">Submitted</Badge>}
-                {returned && <Badge color="primary">Returned</Badge>}
+                {late && <Badge variant="error">Late</Badge>}
+                {submitted && !returned &&<Badge variant="success">Submitted</Badge>}
+                {returned && <Badge variant="primary">Returned</Badge>}
             </div>
         )}
         {isTeacher && (
             <div className="flex flex-row space-x-3 items-center">
                 <Button.SM href={`/classes/${classId}/assignment/${assignmentId}/edit`}><HiPencil /></Button.SM>
                 <Button.SM className="text-inherit hover:text-red-400" onClick={() => {
-                    handleApiPromise(fetch(`/api/class/${classId}/assignment/${assignmentId}`, {
-                        method: 'DELETE',
-                    }))
-                    .then(({ success, payload, level, remark }: ProcessedResponse) => {
-                        dispatch(addAlert({
-                            level: level,
-                            remark: remark,
-                        }));
-                        if (success) {
-                            emitAssignmentDelete(classId, assignmentId);
-                            dispatch(setRefetch(true));
-                        }
-                    })
+                    deleteAssignment({
+                        classId,
+                        id: assignmentId
+                    });
                 }}><HiTrash /></Button.SM>
             </div>)}
     </div>)

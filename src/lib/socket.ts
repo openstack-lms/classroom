@@ -170,3 +170,33 @@ export const emitAttendanceUpdate = (classId: string, attendance: any) => {
   const socket = getSocket();
   socket.emit('attendance-update', { classId, attendance });
 };
+
+export const emitClassCreate = (classData: any) => {
+  const socket = getSocket();
+  socket.emit('create-class', { class: classData });
+};
+
+export const emitClassUpdate = (classData: any) => {
+  const socket = getSocket();
+  socket.emit('update-class', { class: classData });
+};
+
+export const emitClassDelete = (classId: string) => {
+  const socket = getSocket();
+  socket.emit('delete-class', { classId });
+};
+
+export const emitEventCreate = (event: any) => {
+  const socket = getSocket();
+  socket.emit('event-create', { classId: event.classId, event });
+};
+
+export const emitEventUpdate = (event: any) => {
+  const socket = getSocket();
+  socket.emit('event-update', { classId: event.classId, event });
+};
+
+export const emitEventDelete = (classId: string, eventId: string) => {
+  const socket = getSocket();
+  socket.emit('event-delete', { classId, eventId });
+};

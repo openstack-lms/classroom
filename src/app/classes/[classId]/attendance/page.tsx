@@ -1,134 +1,76 @@
 "use client";
 
-import { ClassEvent } from "@/interfaces/api/Agenda";
-import { ApiResponse, ErrorPayload } from "@/interfaces/api/Response";
-import { AlertLevel } from "@/lib/alertLevel";
-import { addAlert, openModal, setRefetch } from "@/store/appSlice";
-import { RootState } from "@/store/store";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { handleApiPromise } from "@/lib/handleApiPromise";
-import Button from "@/components/util/Button";
+import { RootState } from "@/store/store";
+import { addAlert, openModal, setRefetch } from "@/store/appSlice";
+import { AlertLevel } from "@/lib/alertLevel";
+import Button from "@/components/ui/Button";
 import UpdateClassEvent from "@/components/class/forms/UpdateClassEvent";
 import ManageAttendance from "@/components/class/forms/ManageAttendance";
 import Loading from "@/components/Loading";
-import Empty from "@/components/util/Empty";
+import Empty from "@/components/ui/Empty";
 import { HiCalendar, HiLocationMarker, HiClock, HiClipboardCheck, HiPencil, HiInformationCircle, HiCheck, HiX, HiClock as HiClockIcon } from "react-icons/hi";
 import { initializeSocket, joinClass, leaveClass } from "@/lib/socket";
+import { trpc } from "@/utils/trpc";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@server/routers/_app";
 
 interface AttendanceStatus {
     eventId: string;
     status: 'present' | 'late' | 'absent' | 'not_taken';
 }
 
-interface GetAttendanceResponse {
-    attendance: {
-        id: string;
-        date: Date;
-        event?: {
-            id: string;
-            name: string | null;
-            startTime: Date;
-            endTime: Date;
-            location: string | null;
-        } | null;
-        present: { id: string; username: string }[];
-        late: { id: string; username: string }[];
-        absent: { id: string; username: string }[];
-    }[];
-}
+type RouterOutput = inferRouterOutputs<AppRouter>;
+type AttendanceRecord = RouterOutput["attendance"]["get"]["attendance"][number];
+type AttendanceQueryResult = RouterOutput["attendance"]["get"];
 
 export default function AttendancePage({ params }: { params: { classId: string } }) {
-    const [events, setEvents] = useState<ClassEvent[]>([]);
-    const [loading, setLoading] = useState(true);
     const [attendanceStatuses, setAttendanceStatuses] = useState<Record<string, AttendanceStatus>>({});
     const appState = useSelector((state: RootState) => state.app);
     const dispatch = useDispatch();
 
+    // Fetch all attendance records for the class
+    const { data: attendanceDataRaw, isLoading: attendanceLoading, refetch: refetchAttendance } = trpc.attendance.get.useQuery({ classId: params.classId });
+    const attendanceData = attendanceDataRaw;
+
     // Socket connection and event handling
     useEffect(() => {
         const socket = initializeSocket();
-        
-        // Join the class room
         joinClass(params.classId);
-
-        // Handle attendance updates
-        socket.on('attendance-updated', (updatedAttendance: GetAttendanceResponse['attendance'][0]) => {
-            if (updatedAttendance.event) {
-                const studentId = appState.user.id;
-                let status: 'present' | 'late' | 'absent' | 'not_taken' = 'not_taken';
-                
-                if (updatedAttendance.present.some(s => s.id === studentId)) {
-                    status = 'present';
-                } else if (updatedAttendance.late.some(s => s.id === studentId)) {
-                    status = 'late';
-                } else if (updatedAttendance.absent.some(s => s.id === studentId)) {
-                    status = 'absent';
-                }
-                
-                setAttendanceStatuses(prev => ({
-                    ...prev,
-                    [updatedAttendance.event!.id]: { eventId: updatedAttendance.event!.id, status }
-                }));
-            }
+        socket.on('attendance-updated', () => {
+            refetchAttendance();
         });
-
-        // Cleanup on unmount
         return () => {
             leaveClass(params.classId);
             socket.off('attendance-updated');
         };
-    }, [params.classId, appState.user.id]);
+    }, [params.classId, refetchAttendance]);
 
+    const attendanceArray = (attendanceDataRaw as any)?.["attendance"] || [];
+    const events = attendanceArray
+        .map((record: AttendanceRecord) => record.event)
+        .filter((event: AttendanceRecord["event"]): event is NonNullable<AttendanceRecord["event"]> => !!event);
+
+    // Map attendance status for each event for the current user
     useEffect(() => {
-        setLoading(true);
-        handleApiPromise<{ events: ClassEvent[] }>(fetch(`/api/agenda/class/all/${params.classId}`, {
-            method: 'GET',
-        }))
-            .then((response) => {
-                if (response.success) {
-                    setEvents([...response.payload.events]);
-                    
-                    // Fetch attendance status for each event
-                    const fetchAttendancePromises = response.payload.events.map(event =>
-                        handleApiPromise<GetAttendanceResponse>(
-                            fetch(`/api/class/${params.classId}/attendance?eventId=${event.id}`)
-                        ).then((attendanceResponse) => {
-                            if (attendanceResponse.success && attendanceResponse.payload.attendance?.[0]) {
-                                const attendance = attendanceResponse.payload.attendance[0];
-                                const studentId = appState.user.id;
-                                let status: 'present' | 'late' | 'absent' | 'not_taken' = 'not_taken';
-                                
-                                if (attendance.present.some(s => s.id === studentId)) {
-                                    status = 'present';
-                                } else if (attendance.late.some(s => s.id === studentId)) {
-                                    status = 'late';
-                                } else if (attendance.absent.some(s => s.id === studentId)) {
-                                    status = 'absent';
-                                }
-                                
-                                return { eventId: event.id, status };
-                            }
-                            return { eventId: event.id, status: 'not_taken' as const };
-                        })
-                    );
-                    
-                    Promise.all(fetchAttendancePromises).then(statuses => {
-                        const statusMap = statuses.reduce((acc, status) => ({
-                            ...acc,
-                            [status.eventId]: status
-                        }), {});
-                        setAttendanceStatuses(statusMap);
-                    });
-                } else {
-                    dispatch(addAlert({
-                        level: AlertLevel.ERROR,
-                        remark: response.remark,
-                    }));
-                }
-                setLoading(false);
-            });
-    }, [appState.refetch]);
+        if (!attendanceData || !attendanceData.attendance) return;
+        const statusMap: Record<string, AttendanceStatus> = {};
+        for (const record of attendanceData.attendance) {
+            if (!record.event) continue;
+            const studentId = appState.user.id;
+            let status: 'present' | 'late' | 'absent' | 'not_taken' = 'not_taken';
+            if (record.present.some((s: { id: string }) => s.id === studentId)) {
+                status = 'present';
+            } else if (record.late.some((s: { id: string }) => s.id === studentId)) {
+                status = 'late';
+            } else if (record.absent.some((s: { id: string }) => s.id === studentId)) {
+                status = 'absent';
+            }
+            statusMap[record.event.id] = { eventId: record.event.id, status };
+        }
+        setAttendanceStatuses(statusMap);
+    }, [attendanceData, appState.user.id]);
 
     const getStatusIcon = (status: AttendanceStatus['status']) => {
         switch (status) {
@@ -156,7 +98,7 @@ export default function AttendancePage({ params }: { params: { classId: string }
         }
     };
 
-    if (loading) {
+    if (attendanceLoading) {
         return <div className="w-full h-full flex items-center justify-center">
             <Loading />
         </div>;
@@ -192,9 +134,9 @@ export default function AttendancePage({ params }: { params: { classId: string }
                         </tr>
                     </thead>
                     <tbody>
-                        {events.map((event, index) => (
+                        {events.map((event: AttendanceRecord["event"]) => (
                             <tr 
-                                key={index} 
+                                key={event.id} 
                                 className="border-b border-border hover:bg-background-muted/50 transition-colors duration-200"
                             >
                                 <td className="py-4 px-4">
@@ -247,7 +189,7 @@ export default function AttendancePage({ params }: { params: { classId: string }
                                             </Button.SM>
                                             <Button.SM 
                                                 onClick={() => dispatch(openModal({
-                                                    body: <UpdateClassEvent id={event.id} />,
+                                                    body: <UpdateClassEvent id={event.id} onUpdate={refetchAttendance} />,
                                                     header: 'Edit Event'
                                                 }))}
                                                 className="flex items-center text-foreground hover:text-primary-500"
@@ -256,7 +198,7 @@ export default function AttendancePage({ params }: { params: { classId: string }
                                             </Button.SM>
                                         </div>
                                     </td>
-                                ) : (
+                                ) :
                                     <td className="py-4 px-4">
                                         <div className="flex items-center space-x-2">
                                             {getStatusIcon(attendanceStatuses[event.id]?.status || 'not_taken')}
@@ -265,7 +207,7 @@ export default function AttendancePage({ params }: { params: { classId: string }
                                             </span>
                                         </div>
                                     </td>
-                                )}
+                                }
                             </tr>
                         ))}
                     </tbody>

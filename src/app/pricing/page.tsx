@@ -2,7 +2,7 @@
 
 import { HiCheck, HiArrowRight } from "react-icons/hi";
 import Link from "next/link";
-import Button from "@/components/util/Button";
+import Button from "@/components/ui/Button";
 
 const tiers = [
     {

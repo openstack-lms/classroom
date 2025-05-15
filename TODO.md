@@ -1,17 +1,41 @@
 # OpenStack LMS Development Roadmap
 
+## Incomplete Work (Current Sprint)
+- [ ] Complete file system implementation
+  - [ ] Finish `/api/files/[fileId]` endpoint implementation
+  - [ ] Add proper error handling and validation
+  - [ ] Implement file upload improvements
+    - [ ] Validation system
+    - [ ] Queue management
+    - [ ] Progress tracking
+- [ ] Backend improvements
+  - [ ] Complete server directory organization
+  - [ ] Enhance logging system
+  - [ ] Add request validation middleware
+  - [ ] Set up proper error boundaries
+
 ## Core Features in Development
 
 ### Class Management & Organization
 - [ ] Organization-level scheduling system
   - [ ] Implement sysadmin interface
   - [ ] Add institution-wide event management
+  - [ ] Implement scheduling algorithms
+    - [ ] Hungarian Algorithm for teacher assignment
+    - [ ] Gale-Shapley for student enrollment
+    - [ ] Welsh-Powell graph coloring for schedule generation
+    - [ ] Conflict detection and resolution
 - [x] Enhanced grading system
   - [x] Teacher dashboard for grade weighting
   - [x] Individual student grade management
   - [ ] Extra credit implementation
 
 ### API Improvements
+- [x] Migrate to tRPC
+  - [x] Set up tRPC server
+  - [x] Create base router structure
+  - [x] Implement authentication middleware
+  - [x] Complete endpoint migration
 - [ ] Implement comprehensive API validation
 - [ ] Standardize data cleaning processes
 - [ ] Create unified API response handler
@@ -40,6 +64,28 @@
 - [ ] Class files system integration
   - [ ] API integration
   - [ ] File organization structure
+
+### Algorithm Implementation
+- [ ] Teacher Assignment System
+  - [ ] Bipartite graph representation
+  - [ ] Hungarian Algorithm implementation
+  - [ ] Schedule compatibility checking
+  - [ ] Teacher workload balancing
+- [ ] Student Enrollment System
+  - [ ] Gale-Shapley stable matching
+  - [ ] Priority-based assignment
+  - [ ] Prerequisite validation
+  - [ ] Capacity management
+- [ ] Schedule Generation
+  - [ ] Graph coloring implementation
+  - [ ] Resource allocation
+  - [ ] Conflict resolution
+  - [ ] Room assignment optimization
+- [ ] Data Export System
+  - [ ] Format-specific serialization
+  - [ ] Filtering algorithms
+  - [ ] Data transformation pipeline
+  - [ ] Export queue management
 
 ## 1.0.0-beta Features
 

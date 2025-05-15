@@ -1,18 +1,21 @@
 "use client";
 
-import { Grade } from "@/interfaces/api/Class";
-import { ApiResponse, ErrorPayload } from "@/interfaces/api/Response";
 import { AlertLevel } from "@/lib/alertLevel";
 import { addAlert, setRefetch } from "@/store/appSlice";
 import { RootState } from "@/store/store";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import Input from "@/components/util/Input";
-import { handleApiPromise } from "@/lib/handleApiPromise";
-import Empty from "@/components/util/Empty";
+import Input from "@/components/ui/Input";
+import Empty from "@/components/ui/Empty";
 import { MdGrade } from "react-icons/md";
 import Loading from "@/components/Loading";
-import Button from "@/components/util/Button";
+import Button from "@/components/ui/Button";
+import { trpc } from "@/utils/trpc";
+import type { RouterOutput } from "@server/routers/_app";
+import type { TRPCClientErrorLike } from "@trpc/client";
+import type { AppRouter } from "@server/routers/_app";
+
+type Grade = RouterOutput['class']['getGrades'][number];
 
 export default function AllGradesPage({ params }: { params: { classId: string, userId: string } }) {
     const appState = useSelector((state: RootState) => state.app);
@@ -21,23 +24,17 @@ export default function AllGradesPage({ params }: { params: { classId: string, u
     const [average, setAverage] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(true);
 
+    const { data: gradesData, refetch } = trpc.class.getGrades.useQuery({ 
+        classId: params.classId,
+        userId: params.userId
+    });
+
     useEffect(() => {
-        fetchGrades();
-    }, [appState.refetch]);
-
-    const fetchGrades = async () => {
-        setIsLoading(true);
-        const { success, payload, level, remark } = await handleApiPromise<{ grades: Grade[] }>(
-            fetch(`/api/class/${params.classId}/grades/user/${params.userId}`)
-        );
-
-        if (success) {
-            setGrades(payload.grades.map(grade => ({...grade, edited: false})));
-        } else {
-            dispatch(addAlert({ level, remark }));
+        if (gradesData) {
+            setGrades(gradesData.grades.map((grade: Grade) => ({...grade, edited: false})));
+            setIsLoading(false);
         }
-        setIsLoading(false);
-    };
+    }, [gradesData]);
 
     useEffect(() => {
         if (grades.length === 0) {
@@ -58,6 +55,22 @@ export default function AllGradesPage({ params }: { params: { classId: string, u
         setAverage(totalWeight > 0 ? totalWeightedGrade / totalWeight : 0);
     }, [grades]);
 
+    const updateGrade = trpc.class.updateGrade.useMutation({
+        onSuccess: () => {
+            dispatch(addAlert({
+                level: AlertLevel.SUCCESS,
+                remark: 'Grades updated successfully'
+            }));
+            refetch();
+        },
+        onError: (error: TRPCClientErrorLike<AppRouter>) => {
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: error.message || 'Failed to update grades'
+            }));
+        }
+    });
+
     const handleGradeChange = (index: number, value: string) => {
         const newGrades = [...grades];
         newGrades[index] = {
@@ -72,37 +85,18 @@ export default function AllGradesPage({ params }: { params: { classId: string, u
         const editedGrades = grades.filter(grade => grade.edited);
         
         const updatePromises = editedGrades.map(grade => 
-            handleApiPromise(
-                fetch(`/api/class/${params.classId}/assignment/${grade.assignment.id}/submission/${grade.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        gradeReceived: grade.gradeReceived,
-                        newAttachments: [],
-                        removedAttachments: []
-                    }),
-                })
-            )
+            updateGrade.mutateAsync({
+                classId: params.classId,
+                assignmentId: grade.assignment.id,
+                submissionId: grade.id,
+                gradeReceived: grade.gradeReceived
+            })
         );
 
         try {
-            const results = await Promise.all(updatePromises);
-            const success = results.every(result => result.success);
-            
-            if (success) {
-                dispatch(addAlert({
-                    level: AlertLevel.SUCCESS,
-                    remark: 'Grades updated successfully'
-                }));
-                dispatch(setRefetch(true));
-            }
+            await Promise.all(updatePromises);
         } catch (error) {
-            dispatch(addAlert({
-                level: AlertLevel.ERROR,
-                remark: 'Failed to update grades'
-            }));
+            // Error handling is done in the mutation callbacks
         }
     };
 
@@ -119,57 +113,58 @@ export default function AllGradesPage({ params }: { params: { classId: string, u
             ) : grades.length > 0 ? (
                 <>
                     <div className="border border-border dark:border-border-dark rounded-lg p-4 shadow-md overflow-x-auto">
-                    <div className="min-w-[50rem]">
-                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 mb-3 font-medium px-4 text-foreground-secondary">
-                            <span>Assignment</span>
-                            <span>Grade</span>
-                            <span>Total</span>
-                            <span>%</span>
-                            <span>Weight</span>
+                        <div className="min-w-[50rem]">
+                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 mb-3 font-medium px-4 text-foreground-secondary">
+                                <span>Assignment</span>
+                                <span>Grade</span>
+                                <span>Total</span>
+                                <span>%</span>
+                                <span>Weight</span>
+                            </div>
+                            <div className="space-y-2">
+                                {grades.map((grade, i) => (
+                                    <div
+                                        key={i} 
+                                        className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 items-center rounded-md hover:bg-gray-50 dark:hover:bg-background-subtle transition-colors"
+                                    >
+                                        <span className="font-medium text-foreground-primary overflow-hidden text-ellipsis whitespace-nowrap max-w-[10rem]">{grade.assignment.title}</span>
+                                        <span>
+                                            {appState.user.teacher ? (
+                                                <Input.Small
+                                                    type="number"
+                                                    value={grade.gradeReceived || ''}
+                                                    onChange={(e) => handleGradeChange(i, e.currentTarget.value)}
+                                                    className="w-full !py-1.5 !px-3"
+                                                    max={grade.assignment.maxGrade}
+                                                    min={0}
+                                                />
+                                            ) : (
+                                                <span className="text-foreground-primary">
+                                                    {grade.gradeReceived ?? 'N/A'}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className="text-foreground-secondary">{grade.assignment.maxGrade}</span>
+                                        <span className="text-foreground-secondary">
+                                            {grade.gradeReceived != null 
+                                                ? `${((grade.gradeReceived / grade.assignment.maxGrade!) * 100).toFixed(1)}%` 
+                                                : 'N/A'
+                                            }
+                                        </span>
+                                        <span className="text-foreground-secondary">{grade.assignment.weight}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            {grades.map((grade, i) => (
-                                <div 
-                                    key={i} 
-                                    className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 items-center rounded-md hover:bg-gray-50 dark:hover:bg-background-subtle transition-colors"
-                                >
-                                    <span className="font-medium text-foreground-primary overflow-hidden text-ellipsis whitespace-nowrap max-w-[10rem]">{grade.assignment.title}</span>
-                                    <span>
-                                        {appState.user.teacher ? (
-                                            <Input.Small
-                                                type="number"
-                                                value={grade.gradeReceived || ''}
-                                                onChange={(e) => handleGradeChange(i, e.currentTarget.value)}
-                                                className="w-full !py-1.5 !px-3"
-                                                max={grade.assignment.maxGrade}
-                                                min={0}
-                                            />
-                                        ) : (
-                                            <span className="text-foreground-primary">
-                                                {grade.gradeReceived ?? 'N/A'}
-                                            </span>
-                                        )}
-                                    </span>
-                                    <span className="text-foreground-secondary">{grade.assignment.maxGrade}</span>
-                                    <span className="text-foreground-secondary">
-                                        {grade.gradeReceived != null 
-                                            ? `${((grade.gradeReceived / grade.assignment.maxGrade!) * 100).toFixed(1)}%` 
-                                            : 'N/A'
-                                        }
-                                    </span>
-                                    <span className="text-foreground-secondary">{grade.assignment.weight}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                     </div>
 
                     {appState.user.teacher && grades.some(grade => grade.edited) && (
                         <div className="flex justify-end">
                             <Button.Primary
                                 onClick={saveChanges}
+                                disabled={updateGrade.isPending}
                             >
-                                Save Changes
+                                {updateGrade.isPending ? 'Saving...' : 'Save Changes'}
                             </Button.Primary>
                         </div>
                     )}

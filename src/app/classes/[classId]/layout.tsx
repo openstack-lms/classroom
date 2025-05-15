@@ -5,11 +5,11 @@ import { addAlert, setTeacher } from "@/store/appSlice";
 import { RootState } from "@/store/store";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import ClassSidebar from "@/components/class/ClassSidebar";
-import { GetClassResponse } from "@/interfaces/api/Class";
-import { User } from "@/interfaces/api/Auth";
+import Sidebar from "@/components/class/Sidebar";
 import Loading from "@/components/Loading";
-import { handleApiPromise } from "@/lib/handleApiPromise";
+import { trpc } from '@/utils/trpc';
+import { useRouter } from 'next/navigation';
+import { User } from '@prisma/client';
 
 export default function ClassWrappper({ children, params }: {
     children: React.ReactNode;
@@ -17,53 +17,45 @@ export default function ClassWrappper({ children, params }: {
         classId: string;
     };
 }) {
+    const router = useRouter();
     const classId = params.classId;
-
     const dispatch = useDispatch();
-
-    // @todo fix
-    
-    const [teachers, setTeachers] = useState<User[] | null>(null);
-    const [loaded, setLoaded] = useState(false);
-
     const appState = useSelector((state: RootState) => state.app);
+    
+    useEffect(() => {
+        if (!appState.user.loggedIn) {
+            router.push('/login');
+            return;
+        }
+    }, [appState.user.loggedIn, router]);
+
+    const { data: classData, isLoading } = trpc.class.get.useQuery(
+        { classId },
+        { enabled: appState.user.loggedIn }
+    );
 
     useEffect(() => {
-        if (!teachers)  return;
+        if (!classData?.class) return;
 
-        const teacher = teachers.find((teacher: any) => teacher.username === appState.user?.username);
+        const teacher = classData.class.teachers.find((teacher: User) => teacher.username === appState.user?.username);
+        dispatch(setTeacher(!!teacher));
+    }, [classData, appState.user?.username, dispatch]);
 
-        if (teacher) {
-            dispatch(setTeacher(true));
-            setLoaded(true);
+    if (!appState.user.loggedIn) {
+        return null;
+    }
 
-        }
-        else {
-            dispatch(setTeacher(false));
-            setLoaded(true);
-        }
-    }, [teachers]);
+    if (isLoading) {
+        return <Loading />;
+    }
 
+    if (!classData?.class) {
+        return null;
+    }
 
-    useEffect(() => {
-        handleApiPromise<GetClassResponse>(fetch(`/api/class/${classId}`))
-            .then(({ success, payload, level, remark }) => {
-                if (success) {
-                    setTeachers([...payload.classData.teachers]);
-                } else {
-                    dispatch(addAlert({ level, remark }));
-                }
-            });
-    }, [appState.refetch]);
-
-
-if (!loaded) {
-    return <Loading />;
-}
     return (
-        
         <div className="flex flex-row mx-5 space-x-7 h-full">
-            <ClassSidebar teacher={appState.user.teacher} classId={classId} />
+            <Sidebar teacher={appState.user.teacher} classId={classId} />
             <div className="h-full pt-7 overflow-y-scroll flex-grow pe-7 ps-1">
                 <div className="mx-0 md:mx-4 lg:mx-8">
                     {children}

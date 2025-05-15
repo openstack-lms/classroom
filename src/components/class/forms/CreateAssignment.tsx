@@ -1,4 +1,4 @@
-"use client"; // redundant
+"use client";
 
 import { AlertLevel } from "@/lib/alertLevel";
 import { fileToBase64 } from "@/lib/fileToBase64";
@@ -7,73 +7,120 @@ import { useRef, useState } from "react";
 import { HiTrash, HiX } from "react-icons/hi";
 import { useDispatch } from "react-redux";
 import { v4 } from "uuid";
-import Button from "../../util/Button";
-import Input from "../../util/Input";
+import Button from "../../ui/Button";
+import Input from "../../ui/Input";
 import FileEdit from "../FileEdit";
-import { CreateAssignmentRequest } from "@/interfaces/api/Class";
-import { handleApiPromise } from "@/lib/handleApiPromise";
-import { emitAssignmentCreate } from "@/lib/socket";
+import { emitAssignmentCreate, emitSectionCreate } from "@/lib/socket";
+import { trpc } from "@/utils/trpc";
+import type { RouterInputs } from "@server/routers/_app";
 
-export default function CreateAssignment({ classId, sections }: { classId: string, sections: any }) {
+type FileData = {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    data: string;
+};
+
+type CreateAssignmentInput = Omit<RouterInputs['assignment']['create'], 'files'> & {
+    files: FileData[];
+};
+
+interface AssignmentData {
+    title: string;
+    instructions: string;
+    dueDate: string;
+    sectionId?: string;
+    graded: boolean;
+    maxGrade: number;
+    weight: number;
+    type: 'HOMEWORK' | 'QUIZ' | 'TEST' | 'PROJECT' | 'ESSAY' | 'DISCUSSION' | 'PRESENTATION' | 'LAB' | 'OTHER';
+    rubric?: {
+        criteria: Array<{
+            name: string;
+            description: string;
+            maxPoints: number;
+        }>;
+    };
+    files: Array<{
+        id: string;
+        type: string;
+        name: string;
+        data: string;
+        size: number;
+    }>;
+    classId: string;
+}
+
+export default function CreateAssignment({ classId, sections }: { classId: string, sections: { id: string; name: string; }[] }) {
     const dispatch = useDispatch();
-
     const fileInput = useRef<HTMLInputElement>(null);
-
-    const [assignmentData, setAssignmentData] = useState<CreateAssignmentRequest>({
-        files: [],
-        dueDate: new Date(),
-        instructions: '',
+    const [showNewSection, setShowNewSection] = useState(false);
+    const [newSectionName, setNewSectionName] = useState('');
+    const [assignmentData, setAssignmentData] = useState<AssignmentData>({
         title: '',
+        instructions: '',
+        dueDate: new Date().toISOString().split('T')[0],
+        sectionId: undefined,
         graded: false,
-        maxGrade: 0,
+        maxGrade: 100,
         weight: 1,
+        type: 'HOMEWORK',
+        rubric: {
+            criteria: [
+                { name: 'Criteria 1', description: 'Description 1', maxPoints: 25 },
+                { name: 'Criteria 2', description: 'Description 2', maxPoints: 25 },
+                { name: 'Criteria 3', description: 'Description 3', maxPoints: 25 },
+                { name: 'Criteria 4', description: 'Description 4', maxPoints: 25 }
+            ]
+        },
+        files: [],
+        classId
+    });
+
+    const createAssignment = trpc.assignment.create.useMutation({
+        onSuccess: (data) => {
+            // Emit socket event for real-time update
+            emitAssignmentCreate(classId, data.assignment);
+        dispatch(addAlert({
+            level: AlertLevel.SUCCESS,
+                remark: 'Assignment created successfully',
+            }));
+            dispatch(closeModal());
+        },
+        onError: (error) => {
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: error.message || 'Failed to create assignment',
+            }));
+        }
+    });
+
+    const createSection = trpc.section.create.useMutation({
+        onSuccess: (data) => {
+            // Emit socket event for real-time update
+            emitSectionCreate(classId, data.section);
+                setAssignmentData({
+                ...assignmentData,
+                sectionId: data.section.id
+            });
+            setShowNewSection(false);
+            setNewSectionName('');
+            dispatch(addAlert({
+                level: AlertLevel.SUCCESS,
+                remark: 'Section created successfully',
+            }));
+        },
+        onError: (error) => {
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: error.message || 'Failed to create section',
+            }));
+        }
     });
 
     const handleCreateAssignment = async () => {
-        dispatch(addAlert({
-            level: AlertLevel.SUCCESS,
-            remark: 'Creating assignment',
-        }));
-
-        try {
-            const result = await handleApiPromise(
-                fetch(`/api/class/${classId}/assignment`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        ...assignmentData,
-                        files: assignmentData.files,
-                    } as CreateAssignmentRequest),
-                })
-            );
-            
-            dispatch(addAlert({ level: result.level, remark: result.remark }));
-
-            if (result.success && result.payload) {
-                // Emit socket event after successful creation
-                emitAssignmentCreate(classId, result.payload.assignment);
-                
-                dispatch(setRefetch(true));
-                dispatch(closeModal());
-                setAssignmentData({
-                    files: [],
-                    dueDate: new Date(),
-                    instructions: '',
-                    title: '',
-                    graded: false,
-                    maxGrade: 0,
-                    weight: 1,
-                });
-            }
-        } catch (error) {
-            console.error('Error creating assignment:', error);
-            dispatch(addAlert({
-                level: AlertLevel.ERROR,
-                remark: 'Failed to create assignment',
-            }));
-        }
+        createAssignment.mutate(assignmentData);
     };
 
     return (<div
@@ -96,47 +143,169 @@ export default function CreateAssignment({ classId, sections }: { classId: strin
                 <div className="flex flex-col space-y-3">
                     <Input.Text
                         label="Due Date"
-                        onChange={(e) => setAssignmentData({ ...assignmentData, dueDate: new Date(e.target.value) })}
-                        value={assignmentData.dueDate.toISOString().split('T')[0]}
+                        onChange={(e) => setAssignmentData({ ...assignmentData, dueDate: new Date(e.target.value).toISOString() })}
+                        value={new Date(assignmentData.dueDate).toISOString().split('T')[0]}
                         type="date" />
                 </div>
                 <div className="flex flex-col space-y-3">
                     <label className="text-xs font-bold">Section</label>
+                    {showNewSection ? (
+                        <div className="flex flex-col space-y-2">
+                            <Input.Text
+                                value={newSectionName}
+                                onChange={(e) => setNewSectionName(e.target.value)}
+                                placeholder="Enter section name..."
+                            />
+                            <div className="flex flex-row space-x-2">
+                                <Button.Light
+                                    onClick={() => {
+                                        createSection.mutate({
+                                            classId,
+                                            name: newSectionName
+                                        });
+                                    }}
+                                >
+                                    Add
+                                </Button.Light>
+                                <Button.Light
+                                    onClick={() => {
+                                        setShowNewSection(false);
+                                        setNewSectionName('');
+                                    }}
+                                >
+                                    Cancel
+                                </Button.Light>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col space-y-2">
                     <Input.Select
                         className="rounded-md bg-gray-100 px-2 py-3 text-sm"
-                        onChange={(e) => setAssignmentData({ ...assignmentData, sectionId: e.target.value == 'none' ? undefined : e.target.value })}
+                                onChange={(e) => setAssignmentData({ ...assignmentData, sectionId: e.target.value === 'none' ? undefined : e.target.value })}
                         value={assignmentData.sectionId || 'none'}
                         >
-                        {
-                            sections.map((section: any, index: number) => (
-                                <option key={index} value={section.id}>{section.name}</option>
-                            ))
-                        }
+                                {sections.map((section) => (
+                                    <option key={section.id} value={section.id}>{section.name}</option>
+                                ))}
                         <option value="none">No section</option>
-
                     </Input.Select>
+                            <Button.Light
+                                onClick={() => setShowNewSection(true)}
+                            >
+                                + New Section
+                            </Button.Light>
+                        </div>
+                    )}
                 </div>
                 <div className="flex flex-col space-y-3">
-                    <div className="flex flex-row space-x-2">
-                        <label className="text-xs font-bold">Graded</label>
-                        <input type="checkbox" checked={assignmentData.graded} onChange={(e) => setAssignmentData({ ...assignmentData, graded: !assignmentData.graded})} />
+                    <Input.Select
+                        label="Assignment Type"
+                        value={assignmentData.type}
+                        onChange={(e) => setAssignmentData({ ...assignmentData, type: e.target.value as AssignmentData['type'] })}
+                    >
+                        <option value="HOMEWORK">Homework</option>
+                        <option value="QUIZ">Quiz</option>
+                        <option value="TEST">Test</option>
+                        <option value="PROJECT">Project</option>
+                        <option value="ESSAY">Essay</option>
+                        <option value="DISCUSSION">Discussion</option>
+                        <option value="PRESENTATION">Presentation</option>
+                        <option value="LAB">Lab</option>
+                        <option value="OTHER">Other</option>
+                    </Input.Select>
+
+                    <div className="flex flex-col space-y-2">
+                        <div className="flex flex-row space-x-2">
+                            <label className="text-xs font-bold">Graded</label>
+                            <input type="checkbox" checked={assignmentData.graded} onChange={(e) => setAssignmentData({ ...assignmentData, graded: !assignmentData.graded})} />
+                        </div>
+                        {assignmentData.graded && (
+                            <div className="flex flex-col space-y-3">
+                                <Input.Text 
+                                    label="Max score" 
+                                    onChange={(e) => setAssignmentData({...assignmentData, maxGrade: parseInt(e.currentTarget.value)})} 
+                                    value={assignmentData.maxGrade} 
+                                    type="number" 
+                                />
+                                <Input.Text 
+                                    type="number" 
+                                    label="Weight" 
+                                    onChange={(e) => setAssignmentData({...assignmentData, weight: parseInt(e.currentTarget.value)})} 
+                                    value={assignmentData.weight} 
+                                />
+                                
+                                {/* Rubric Section */}
+                                <div className="mt-4">
+                                    <h3 className="text-sm font-semibold mb-2">Rubric</h3>
+                                    {assignmentData.rubric?.criteria.map((criterion, index) => (
+                                        <div key={index} className="flex flex-col space-y-2 mb-3 p-3 border border-border rounded-md">
+                                            <Input.Text
+                                                label="Criterion Name"
+                                                value={criterion.name}
+                                                onChange={(e) => {
+                                                    const newCriteria = [...assignmentData.rubric!.criteria];
+                                                    newCriteria[index].name = e.target.value;
+                                                    setAssignmentData({
+                                                        ...assignmentData,
+                                                        rubric: { ...assignmentData.rubric!, criteria: newCriteria }
+                                                    });
+                                                }}
+                                            />
+                                            <Input.Text
+                                                label="Description"
+                                                value={criterion.description}
+                                                onChange={(e) => {
+                                                    const newCriteria = [...assignmentData.rubric!.criteria];
+                                                    newCriteria[index].description = e.target.value;
+                                                    setAssignmentData({
+                                                        ...assignmentData,
+                                                        rubric: { ...assignmentData.rubric!, criteria: newCriteria }
+                                                    });
+                                                }}
+                                            />
+                                            <Input.Text
+                                                label="Max Points"
+                                                type="number"
+                                                value={criterion.maxPoints}
+                                                onChange={(e) => {
+                                                    const newCriteria = [...assignmentData.rubric!.criteria];
+                                                    newCriteria[index].maxPoints = parseInt(e.target.value);
+                                                    setAssignmentData({
+                                                        ...assignmentData,
+                                                        rubric: { ...assignmentData.rubric!, criteria: newCriteria }
+                                                    });
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                    <Button.Light
+                                        onClick={() => {
+                                            const newCriteria = [...assignmentData.rubric!.criteria];
+                                            newCriteria.push({ name: '', description: '', maxPoints: 0 });
+                                            setAssignmentData({
+                                                ...assignmentData,
+                                                rubric: { ...assignmentData.rubric!, criteria: newCriteria }
+                                            });
+                                        }}
+                                    >
+                                        Add Criterion
+                                    </Button.Light>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    {assignmentData.graded && <div className="flex flex-col space-y-3">
-                        <Input.Text label="Max score" onChange={(e) => setAssignmentData({...assignmentData, maxGrade: parseInt(e.currentTarget.value)})} value={assignmentData.maxGrade} type="number" />
-                        <Input.Text type="number" label="Weight" onChange={(e) => setAssignmentData({...assignmentData, weight: parseInt(e.currentTarget.value)})} value={assignmentData.weight} />
-                    </div>}
                 </div>
             </div>
         </div>
         <div className="flex flex-col space-y-3">
             <label className="text-sm font-bold">files</label>
-            {assignmentData.files.map((attachment: any, index) => (
+            {assignmentData.files.map((attachment) => (
                 <FileEdit 
-                    key={index}
+                    key={attachment.id}
                     name={attachment.name}
                     type={attachment.type}
-                    src={attachment.base64}
-                    onDelete={() => setAssignmentData({ ...assignmentData, files: assignmentData.files.filter((f: any) => f.id !== attachment.id) })}
+                    src={attachment.data}
+                    onDelete={() => setAssignmentData({ ...assignmentData, files: assignmentData.files.filter((f) => f.id !== attachment.id) })}
                 />
             ))}
             {!assignmentData.files.length && (
@@ -155,7 +324,8 @@ export default function CreateAssignment({ classId, sections }: { classId: strin
                                     id: v4(),
                                     name: e.target.files[0].name,
                                     type: e.target.files[0].type,
-                                    base64: base64,
+                                    size: e.target.files[0].size,
+                                    data: base64,
                                 }],
                             });
 
@@ -179,7 +349,8 @@ export default function CreateAssignment({ classId, sections }: { classId: strin
                     <Button.Primary type="submit"
                     className="bg-black hover:bg-gray-800 text-white px-3 py-2 rounded-md"
                     onClick={handleCreateAssignment}
-                    >Create</Button.Primary>
+                    disabled={createAssignment.isPending}
+                    >{createAssignment.isPending ? 'Creating...' : 'Create'}</Button.Primary>
                 </div>
         </div>
     </div>);

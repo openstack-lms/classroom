@@ -1,28 +1,34 @@
 "use client";
 
-import AnnouncementComponent from "@/components/class/Announcement";
-import Empty from "@/components/util/Empty";
-import Loading from "@/components/Loading";
-import { Announcement, Class, GetClassResponse } from "@/interfaces/api/Class";
-import { emitNewAnnouncement, initializeSocket, joinClass, leaveClass } from "@/lib/socket";
-import { handleApiPromise, ProcessedResponse } from "@/lib/handleApiPromise";
+import { trpc } from "@/utils/trpc";
+import type { RouterOutput } from "@server/routers/_app";
+import { AlertLevel } from "@/lib/alertLevel";
 import { addAlert, setRefetch } from "@/store/appSlice";
 import { RootState } from "@/store/store";
 import { useEffect, useState } from "react";
 import { HiSpeakerphone } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
-import Textbox from "@/components/util/Textbox";
-import Button from "@/components/util/Button";
-import Input from "@/components/util/Input";
+import Textbox from "@/components/ui/Textbox";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Loading from "@/components/Loading";
+import Empty from "@/components/ui/Empty";
+import AnnouncementComponent from "@/components/class/Announcement";
+import { emitNewAnnouncement, initializeSocket, joinClass, leaveClass } from "@/lib/socket";
+
+type ClassData = RouterOutput['class']['get']['class'];
+type Announcement = ClassData['announcements'][number];
 
 export default function ClassHome({ params }: { params: { classId: string } }) {
     const { classId } = params;
-    const [classProps, setClassProps] = useState<Class & { announcements: Announcement[] } | null>(null);
+    const [classProps, setClassProps] = useState<ClassData | null>(null);
     const [announcementTitle, setAnnouncementTitle] = useState<string>('');
     const [announcementContent, setAnnouncementContent] = useState<string>('');
 
     const appState = useSelector((state: RootState) => state.app);
     const dispatch = useDispatch();
+
+    const { mutate: createAnnouncement } = trpc.announcement.create.useMutation();
 
     useEffect(() => {
         // Initialize socket connection
@@ -33,7 +39,7 @@ export default function ClassHome({ params }: { params: { classId: string } }) {
 
         // Handle new announcements
         socket.on('announcement-created', (announcement: Announcement) => {
-            setClassProps(prev => {
+            setClassProps((prev: ClassData | null) => {
                 if (!prev) return null;
                 return {
                     ...prev,
@@ -49,22 +55,18 @@ export default function ClassHome({ params }: { params: { classId: string } }) {
         };
     }, [classId]);
 
-    useEffect(() => {
-        handleApiPromise<GetClassResponse>(fetch(`/api/class/${classId}`))
-            .then(({ success, payload, level, remark }: ProcessedResponse<GetClassResponse>) => {
-                if (success) {
-                    setClassProps(payload.classData);
-                    dispatch(setRefetch(false));
-                }
+    const { data: classData, isLoading } = trpc.class.get.useQuery({ classId });
 
-                if (!success) {
-                    dispatch(addAlert({
-                        level: level,
-                        remark: remark,
-                    }));
-                }
+    useEffect(() => {
+        if (classData?.class) {
+            setClassProps({
+                ...classData.class,
+                announcements: classData.class.announcements.sort((a: Announcement, b: Announcement) => 
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                )
             });
-    }, [appState.refetch]);
+        }
+    }, [classData]);
 
     if (!classProps) {
         return <div className="w-full h-full flex items-center justify-center">
@@ -75,6 +77,7 @@ export default function ClassHome({ params }: { params: { classId: string } }) {
     return (
         <div>
             <div className="space-y-5 mb-5">
+                <span className="text-sm text-gray-500">{appState.user.teacher ? 'Teacher' : 'Student'}</span>
                 <div className="text-4xl font-semibold">{classProps.name}</div>
                 <div className="text-sm text-gray-500">{classProps.subject}, Section {classProps.section}</div>
                 {appState.user.teacher && 
@@ -96,27 +99,18 @@ export default function ClassHome({ params }: { params: { classId: string } }) {
                             <Button.Primary onClick={() => {
                                 const formattedContent = `<h1>${announcementTitle}</h1>${announcementContent}`;
 
-                                handleApiPromise(fetch(`/api/class/${classId}/announcement`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        remarks: formattedContent
-                                    }),
-                                }))
-                                .then(({ success, payload, level, remark }: ProcessedResponse) => {
-                                    if (success && payload) {
-                                        emitNewAnnouncement(classId, payload.announcement);
+                                createAnnouncement({
+                                    classId,
+                                    remarks: formattedContent,
+                                }, {
+                                    onSuccess: (data) => {
+                                        emitNewAnnouncement(classId, data.announcement);
                                         dispatch(setRefetch(true));
-                                        setAnnouncementContent("");
-                                        setAnnouncementTitle("");
-                                    }
-                                    dispatch(addAlert({
-                                        level: level,
-                                        remark: remark,
-                                    }));
+                                    },
                                 });
+
+                                setAnnouncementContent("");
+                                setAnnouncementTitle("");
                             }}>
                                 Post Announcement
                             </Button.Primary>
@@ -126,13 +120,17 @@ export default function ClassHome({ params }: { params: { classId: string } }) {
             </div>
             <div className="space-y-2">
                 {
-                    classProps.announcements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((announcement, index) => <AnnouncementComponent
-                        remarks={announcement.remarks}
-                        user={announcement.teacher}
-                        id={announcement.id}
-                        classId={params.classId}
-                        key={index}
-                    />)
+                    classProps.announcements.sort((a: Announcement, b: Announcement) => 
+                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                    ).map((announcement: Announcement, index: number) => (
+                        <AnnouncementComponent
+                            remarks={announcement.remarks}
+                            user={announcement.teacher}
+                            id={announcement.id}
+                            key={index}
+                            classId={classId}
+                        />
+                    ))
                 }
 
                 {

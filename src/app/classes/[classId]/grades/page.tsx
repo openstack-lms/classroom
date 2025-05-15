@@ -1,48 +1,52 @@
 "use client";
 
-import Input from "@/components/util/Input";
-import { User } from "@/interfaces/api/Auth";
-import { Assignment, GetAssignmentResponse, GetClassResponse, GetSubmissionsResponse, Submission, UpdateAssignmentRequest } from "@/interfaces/api/Class";
-import { handleApiPromise } from "@/lib/handleApiPromise";
+import Input from "@/components/ui/Input";
+import { AlertLevel } from "@/lib/alertLevel";
 import { addAlert, setRefetch } from "@/store/appSlice";
 import { RootState } from "@/store/store";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { MdAssignment, MdPeople } from "react-icons/md";
-import Empty from "@/components/util/Empty";
-import ProfilePicture from "@/components/util/ProfilePicture";
-import Button from "@/components/util/Button";
+import Empty from "@/components/ui/Empty";
+import ProfilePicture from "@/components/ui/ProfilePicture";
+import Button from "@/components/ui/Button";
+import { trpc } from "@/utils/trpc";
+import type { RouterOutput } from "@server/routers/_app";
+
+type Assignment = RouterOutput['class']['get']['class']['assignments'][number];
+type User = RouterOutput['class']['get']['class']['students'][number];
 
 export default function EditGrades({ params }: { params: { classId: string } }) {
 	const [assignments, setAssignments] = useState<(Assignment & { edited: boolean })[]>([]);
 	const [students, setStudents] = useState<User[]>([]);
 	const dispatch = useDispatch();
-
 	const appState = useSelector((state: RootState) => state.app);
 
+	const { data: classData } = trpc.class.get.useQuery({ classId: params.classId });
 
 	useEffect(() => {
-		handleApiPromise<GetClassResponse>(fetch(`/api/class/${params.classId}`))
-			.then(({ level, remark, payload, success }) => {
-				if (success) {
-					setAssignments([
-						...payload.classData.assignments.map(assignment => ({ ...assignment, edited: false }))
-					]);
-					setStudents([
-						...payload.classData.students
-					]);
-					dispatch(setRefetch(false));
-				}
+		if (classData?.class) {
+			setAssignments([
+				...classData.class.assignments.map((assignment: Assignment) => ({ ...assignment, edited: false }))
+			]);
+			setStudents([
+				...classData.class.students
+			]);
+			dispatch(setRefetch(false));
+		}
+	}, [classData, dispatch]);
 
-				if (!success) {
-					dispatch(addAlert({
-						level,
-						remark
-					}))
-				}
-			});
-
-	}, [appState.refetch]);
+	const updateAssignment = trpc.assignment.update.useMutation({
+		onSuccess: () => {
+			dispatch(setRefetch(true));
+		},
+		onError: (error) => {
+			dispatch(addAlert({
+				level: AlertLevel.ERROR,
+				remark: error.message || 'Error occurred while updating assignments'
+			}));
+		}
+	});
 
 	const handleValueChange = (index: number, field: string, value: any) => {
 		const updatedAssignments = [...assignments];
@@ -57,47 +61,25 @@ export default function EditGrades({ params }: { params: { classId: string } }) 
 	const saveChanges = async () => {
 		const editedAssignments = assignments.filter(assignment => assignment.edited);
 
-		// Use Promise.all to handle multiple requests concurrently with handleApiPromise
+		// Use Promise.all to handle multiple requests concurrently
 		const updatePromises = editedAssignments.map(assignment => {
-			// Create a minimal update payload
-			const updateData: UpdateAssignmentRequest = {
-				// Required fields that must be included
+			return updateAssignment.mutateAsync({
+				classId: params.classId,
+				id: assignment.id,
 				title: assignment.title,
 				instructions: assignment.instructions,
 				dueDate: assignment.dueDate,
-				newAttachments: [],
-				removedAttachments: [],
-				section: assignment.section,
-
-				// The fields we are actually changing
 				graded: assignment.graded,
 				maxGrade: assignment.maxGrade || 0,
-				weight: assignment.weight || 0
-			};
-
-			return handleApiPromise(
-				fetch(`/api/class/${params.classId}/assignment/${assignment.id}`, {
-					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify(updateData)
-				})
-			);
+				weight: assignment.weight || 0,
+				sectionId: assignment.section?.id
+			});
 		});
 
 		try {
-			const results = await Promise.all(updatePromises);
-			const success = results.every(result => result.success);
-
-			if (success) {
-				dispatch(setRefetch(true));
-			}
+			await Promise.all(updatePromises);
 		} catch (error) {
-			dispatch(addAlert({
-				level: 'error',
-				remark: 'Error occurred while updating assignments'
-			}));
+			// Error handling is done in the mutation callbacks
 		}
 	};
 
@@ -112,7 +94,7 @@ export default function EditGrades({ params }: { params: { classId: string } }) 
 				<div className="min-w-[70rem]">
 					{assignments.length > 0 ? (
 						<>
-							<div className=" grid grid-cols-[1fr_1fr_80px_120px_120px] gap-4 mb-3 font-medium px-4 text-foreground-secondary">
+							<div className="grid grid-cols-[1fr_1fr_80px_120px_120px] gap-4 mb-3 font-medium px-4 text-foreground-secondary">
 								<span>Title</span>
 								<span>Due Date</span>
 								<span className="text-center">Graded</span>
@@ -170,8 +152,9 @@ export default function EditGrades({ params }: { params: { classId: string } }) 
 								<div className="mt-6 flex justify-end">
 									<Button.Primary
 										onClick={saveChanges}
+										disabled={updateAssignment.isPending}
 									>
-										Save Changes
+										{updateAssignment.isPending ? 'Saving...' : 'Save Changes'}
 									</Button.Primary>
 								</div>
 							)}

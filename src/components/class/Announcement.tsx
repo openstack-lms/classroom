@@ -1,15 +1,15 @@
 import { User } from "@/interfaces/api/Auth";
-import Button from "../util/Button";
+import Button from "../ui/Button";
 import { HiCheck, HiPencil, HiTrash, HiSpeakerphone } from "react-icons/hi";
 import { useState } from "react";
 import { CreateAnnouncementProps } from "@/interfaces/api/Class";
-import Input from "../util/Input";
-import { handleApiPromise, ProcessedResponse } from "@/lib/handleApiPromise";
+import Input from "../ui/Input";
 import { useDispatch, useSelector } from "react-redux";
 import { addAlert, setRefetch } from "@/store/appSlice";
-import IconFrame from "../util/IconFrame";
+import IconFrame from "../ui/IconFrame";
 import { RootState } from "@/store/store";
-import Textbox from "../util/Textbox";
+import Textbox from "../ui/Textbox";
+import { trpc } from "@/utils/trpc";
 
 export default function Announcement({
     classId,
@@ -33,6 +33,27 @@ export default function Announcement({
 
     // Check if the current user is the creator of the announcement
     const canEdit = currentUser.id === user.id;
+
+    const updateAnnouncement = trpc.announcement.update.useMutation({
+        onSuccess: () => {
+            setEditing(false);
+            dispatch(setRefetch(true));
+            dispatch(addAlert({ level: "success", remark: "Announcement updated successfully" }));
+        },
+        onError: (error) => {
+            dispatch(addAlert({ level: "error", remark: error.message }));
+        },
+    });
+
+    const deleteAnnouncement = trpc.announcement.delete.useMutation({
+        onSuccess: () => {
+            dispatch(setRefetch(true));
+            dispatch(addAlert({ level: "success", remark: "Announcement deleted successfully" }));
+        },
+        onError: (error) => {
+            dispatch(addAlert({ level: "error", remark: error.message }));
+        },
+    });
 
     return (
         <div className="rounded-lg shadow-sm hover:shadow-md duration-200 py-5">
@@ -62,20 +83,12 @@ export default function Announcement({
                                     />
                                     <Button.SM
                                         onClick={() => {
-                                            handleApiPromise(fetch(`/api/class/${classId}/announcement/${id}`, {
-                                                method: 'PUT',
-                                                headers: {
-                                                    'Content-type': 'application/json'
+                                            updateAnnouncement.mutate({
+                                                id,
+                                                data: {
+                                                    content: form.remarks,
                                                 },
-                                                body: JSON.stringify(form),
-                                            }))
-                                                .then(({ success, level, remark }: ProcessedResponse) => {
-                                                    dispatch(addAlert({ level, remark }));
-                                                    if (success) {
-                                                        setEditing(false);
-                                                        dispatch(setRefetch(true));
-                                                    }
-                                                });
+                                            });
                                         }}
                                     >
                                         <HiCheck className="h-4 w-4" />
@@ -101,15 +114,9 @@ export default function Announcement({
                             <Button.SM
                                 className="text-foreground-muted hover:text-error dark:text-foreground-muted dark:hover:text-error-light"
                                 onClick={() => {
-                                    handleApiPromise(fetch(`/api/class/${classId}/announcement/${id}`, {
-                                        method: 'DELETE',
-                                    }))
-                                        .then(({ success, level, remark }: ProcessedResponse) => {
-                                            dispatch(addAlert({ level, remark }));
-                                            if (success) {
-                                                dispatch(setRefetch(true));
-                                            }
-                                        });
+                                    if (window.confirm("Are you sure you want to delete this announcement?")) {
+                                        deleteAnnouncement.mutate({ id });
+                                    }
                                 }}
                             >
                                 <HiTrash className="h-4 w-4" />

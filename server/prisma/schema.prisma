@@ -1,0 +1,304 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AssignmentType {
+  HOMEWORK
+  QUIZ
+  TEST
+  PROJECT
+  ESSAY
+  DISCUSSION
+  PRESENTATION
+  LAB
+  OTHER
+  ANNOUNCEMENT
+}
+
+model Institution {
+  id      String      @id @default(uuid())
+  name    String
+  settings Json?      @default("{}")
+  address String?
+  phone   String?
+  email   String?
+  website String?
+  logo    String?     // URL to logo image
+  academicYear String? // Current academic year
+  term    String?     // Current term/semester
+  startDate DateTime?
+  endDate DateTime?
+
+  // Academic Settings
+  gradingSystem Json? // Store grading scale, GPA calculation rules
+  attendancePolicy Json? // Store attendance rules and policies
+  academicCalendar Json? // Store academic calendar events
+
+  // Financial Settings
+  tuitionRates Json? // Store tuition and fee information
+  paymentSchedule Json? // Store payment due dates and schedules
+
+  // Communication Settings
+  notificationPreferences Json? // Store notification settings
+  communicationTemplates Json? // Store email/SMS templates
+
+  classes Class[]
+
+  students User[] @relation("InstitutionMembers")
+  admins User[] @relation("InstitutionAdmins")
+  teachers User[] @relation("InstitutionTeachers")
+  primaryTeachers User[] @relation("InstitutionPrimaryTeachers")
+
+  // New relations
+  departments Department[]
+  courses Course[]
+  schedules Schedule[]
+  events Event[]
+  announcements Announcement[]
+}
+
+model Department {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  head          User?     @relation("DepartmentHead", fields: [headId], references: [id])
+  headId        String?   @unique
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  institutionId String
+  courses       Course[]
+  teachers      User[]    @relation("DepartmentTeachers")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Course {
+  id            String    @id @default(uuid())
+  code          String    // Course code (e.g., MATH101)
+  name          String
+  description   String?
+  credits       Int
+  department    Department @relation(fields: [departmentId], references: [id])
+  departmentId  String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  institutionId String
+  prerequisites Json?     // Store prerequisite course IDs
+  syllabus      Json?     // Store course syllabus
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Schedule {
+  id            String    @id @default(uuid())
+  name          String
+  startDate     DateTime
+  endDate       DateTime
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  institutionId String
+  type          String    // e.g., "ACADEMIC", "EXAM", "BREAK"
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model User {
+  id           String      @id @default(uuid())
+  username     String
+  password     String
+  profile      Json?       @default("{}")
+
+  teacherIn   Class[] @relation("UserTeacherToClass")
+  studentIn   Class[] @relation("UserStudentToClass")
+
+  submissions Submission[]
+  sessions    Session[]
+  files       File[]
+  assignments Assignment[]
+  events      Event[]
+  announcements Announcement[]
+
+  institution Institution? @relation("InstitutionPrimaryTeachers", fields: [institutionId], references: [id])
+  institutionId String?
+
+  studentAt Institution[] @relation("InstitutionMembers")
+  adminAt Institution[] @relation("InstitutionAdmins")
+  teacherAt Institution[] @relation("InstitutionTeachers")
+
+  presentAttendance  Attendance[] @relation("PresentAttendance")
+  lateAttendance    Attendance[] @relation("LateAttendance")
+  absentAttendance  Attendance[] @relation("AbsentAttendance")
+
+  // New relations
+  departmentHead    Department? @relation("DepartmentHead")
+  departmentTeacher Department[] @relation("DepartmentTeachers")
+  
+  // Additional fields
+  role            String    @default("STUDENT") // STUDENT, TEACHER, ADMIN, STAFF
+  status          String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  enrollmentDate  DateTime?
+  graduationDate  DateTime?
+  studentId       String?   @unique // Student ID number
+  employeeId      String?   @unique // Employee ID number
+  emergencyContact Json?    // Store emergency contact information
+  medicalInfo     Json?     // Store medical information
+  academicInfo    Json?     // Store academic information (GPA, credits, etc.)
+}
+
+model Class {
+  id       String      @id @default(uuid())
+  name     String
+  subject  String
+  section  String
+  teachers  User[] @relation("UserTeacherToClass")
+  students User[] @relation("UserStudentToClass")
+
+  assignments Assignment[]
+  sessions Session[]
+  events    Event[]
+  sections  Section[]
+  announcements Announcement[]
+  attendance Attendance[]
+
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  institutionId String?
+}
+
+model File {
+  id         String @id @default(uuid())
+  name       String
+  path       String
+  size       Int?
+  type       String
+  user       User? @relation(fields: [userId], references: [id])
+  userId     String?
+  uploadedAt DateTime? @default(now())
+
+  // Thumbnail relationship
+  thumbnail   File?  @relation("Thumbnail", fields: [thumbnailId], references: [id])
+  thumbnailId String? @unique
+  originalFile File? @relation("Thumbnail")
+
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId String?
+
+  submission Submission? @relation("SubmissionFile", fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId String?
+
+  annotations Submission? @relation("SubmissionAnnotations", fields: [annotationId], references: [id], onDelete: Cascade)
+  annotationId String?
+}
+
+model Assignment {
+  id            String         @id @default(uuid())
+  title         String
+  instructions  String
+  dueDate       DateTime
+  createdAt     DateTime?      @default(now())
+  modifiedAt    DateTime?      @updatedAt
+  teacher       User           @relation(fields: [teacherId], references: [id], onDelete: NoAction)
+  teacherId     String
+  class         Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId       String
+  attachments   File[]
+  submissions   Submission[]
+  section       Section?       @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId     String?
+  graded        Boolean        @default(false)
+  maxGrade      Int?          @default(0)
+  weight        Float         @default(1)
+  type          AssignmentType @default(HOMEWORK)
+  rubric        Json?         // For storing rubric data
+}
+
+model Announcement {
+  id      String @id @default(uuid())
+  remarks String
+  teacher User @relation(fields: [teacherId], references: [id])
+  teacherId String
+  createdAt DateTime @default(now())
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  institutionId String?
+}
+
+model Submission {
+  id      String @id @default(uuid())
+  createdAt DateTime @default(now())
+  modifiedAt DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId String
+
+  student User @relation(fields: [studentId], references: [id])
+  studentId String
+
+  attachments File[]  @relation("SubmissionFile")
+  annotations File[]  @relation("SubmissionAnnotations")
+
+  gradeReceived Int?
+
+  submittedAt DateTime?
+  submitted   Boolean? @default(false)
+  returned    Boolean? @default(false)
+}
+
+model Section {
+  id        String @id @default(uuid())
+  name      String
+  classId   String
+  class     Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+}
+
+model Session {
+  id        String @id @default(uuid())
+  createdAt DateTime? @default(now())
+  expiresAt DateTime?
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id], onDelete: NoAction)
+  classId   String?
+  class     Class? @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id        String @id @default(uuid())
+  name      String?
+  startTime DateTime
+  endTime   DateTime
+  location  String?
+  remarks   String?
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classId   String?
+  class     Class? @relation(fields: [classId], references: [id], onDelete: Cascade)
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  institutionId String?
+  attendance Attendance[]
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  date      DateTime @default(now())
+  
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String?
+
+  present   User[]   @relation("PresentAttendance")
+  late      User[]   @relation("LateAttendance")
+  absent    User[]   @relation("AbsentAttendance")
+}

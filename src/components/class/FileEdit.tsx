@@ -1,8 +1,8 @@
 import { HiDownload, HiTrash } from "react-icons/hi";
-import IconFrame from "../util/IconFrame";
+import IconFrame from "../ui/IconFrame";
 import { getFileIconInfo } from "@/lib/fileTypes";
 import { useState } from "react";
-import Button from "../util/Button";
+import Button from "../ui/Button";
 
 export default function FileEdit({
     src,

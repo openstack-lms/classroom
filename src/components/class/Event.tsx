@@ -1,12 +1,26 @@
+import { useState } from 'react';
 import { fmtTime, getTimeDifferenceInHours } from "@/lib/time";
 import { addAlert, closeModal, openModal, setRefetch } from "@/store/appSlice";
 import { HiClock, HiPencil, HiTrash } from "react-icons/hi";
 import { useDispatch } from "react-redux";
-import Button from "../util/Button";
-import { DefaultApiResponse } from "@/interfaces/api/Response";
+import Button from "../ui/Button";
 import UpdatePersonalEvent from "./forms/UpdatePersonalEvent";
 import { AlertLevel } from "@/lib/alertLevel";
 import UpdateClassEvent from "./forms/UpdateClassEvent";
+import { emitEventDelete } from '@/lib/socket';
+import { trpc } from '@/utils/trpc';
+import type { TRPCClientErrorLike } from '@trpc/client';
+
+interface EventProps {
+    id: string;
+    startTime: string | Date;
+    endTime: string | Date;
+    remarks: string;
+    eventName: string;
+    location: string;
+    spacingPerHour: number;
+    personal: boolean;
+}
 
 export default function Event({
     id,
@@ -17,17 +31,26 @@ export default function Event({
     location,
     spacingPerHour,
     personal
-}: {
-    id: string;
-    startTime: string | Date;
-    endTime: string | Date;
-    remarks: string;
-    eventName: string;
-    location: string;
-    spacingPerHour: number;
-    personal: boolean;
-}) {
+}: EventProps) {
     const dispatch = useDispatch();
+
+    const deleteEvent = trpc.event.delete.useMutation({
+        onSuccess: () => {
+            emitEventDelete(personal ? '' : id, id);
+            dispatch(addAlert({
+                level: AlertLevel.SUCCESS,
+                remark: 'Event deleted successfully'
+            }));
+            dispatch(setRefetch(true));
+            dispatch(closeModal());
+        },
+        onError: (error: TRPCClientErrorLike<any>) => {
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: error.message || 'Please try again later',
+            }));
+        }
+    });
 
     return <div style={{
         top: spacingPerHour * (new Date(startTime).getUTCHours() + new Date(startTime).getUTCMinutes() / 60),
@@ -48,33 +71,7 @@ export default function Event({
                                 body: personal ? <UpdatePersonalEvent id={id} /> : <UpdateClassEvent id={id} />,
                                 header: 'Update event'
                             }))}><HiPencil /></Button.SM>
-                            <Button.SM onClick={() => {
-                                fetch(`/api/agenda/event/${id}`, {
-                                    method: 'DELETE',
-                                })
-                                    .then(res => res.json())
-                                    .then((data: DefaultApiResponse) => {
-                                        if (data.success) {
-                                            dispatch(addAlert({
-                                                level: AlertLevel.SUCCESS,
-                                                remark: 'Event deleted successfully'
-                                            }));
-                                            dispatch(setRefetch(true));
-                                            dispatch(closeModal());
-                                        } else {
-                                            dispatch(addAlert({
-                                                level: AlertLevel.ERROR,
-                                                remark: data.payload.remark,
-                                            }));
-                                        }
-                                    })
-                                    .catch(() => {
-                                        dispatch(addAlert({
-                                            level: AlertLevel.ERROR,
-                                            remark: 'Please try again later',
-                                        }));
-                                    })
-                            }}><HiTrash className="hover:text-red-500" /></Button.SM>
+                            <Button.SM onClick={() => deleteEvent.mutate({ id })} disabled={deleteEvent.isPending}><HiTrash className="hover:text-red-500" /></Button.SM>
                         </div>
                     </div>
                 </div>, header: (eventName) ? eventName : 'Untitled event'

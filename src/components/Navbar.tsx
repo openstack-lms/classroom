@@ -5,10 +5,10 @@ import { RootState } from "@/store/store";
 import { useDispatch, useSelector } from "react-redux";
 import CreateClass from "./class/forms/CreateClass";
 import JoinClass from "./class/forms/JoinClass";
-import Button from "./util/Button";
+import Button from "./ui/Button";
 import { useState } from "react";
 import { HiMenu, HiX, HiPlus } from "react-icons/hi";
-import ProfilePicture from "@/components/util/ProfilePicture";
+import ProfilePicture from "@/components/ui/ProfilePicture";
 
 export default function Navbar() {
     const appState = useSelector((state: RootState) => state.app);

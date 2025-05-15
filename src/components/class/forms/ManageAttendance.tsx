@@ -1,48 +1,24 @@
-import { ApiResponse } from "@/interfaces/api/Response";
 import { AlertLevel } from "@/lib/alertLevel";
-import { addAlert, closeModal, setRefetch } from "@/store/appSlice";
+import { addAlert, closeModal } from "@/store/appSlice";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import Button from "@/components/util/Button";
-import { handleApiPromise } from "@/lib/handleApiPromise";
+import Button from "@/components/ui/Button";
 import Loading from "@/components/Loading";
-import Empty from "@/components/util/Empty";
-import { HiDocumentText } from "react-icons/hi";
+import Empty from "@/components/ui/Empty";
+import { HiDocumentText, HiUserAdd, HiX } from "react-icons/hi";
 import { emitAttendanceUpdate } from "@/lib/socket";
+import { trpc } from "@/utils/trpc";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@server/routers/_app";
+import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
+
+type RouterOutput = inferRouterOutputs<AppRouter>;
+type AttendanceRecord = RouterOutput["attendance"]["get"]["attendance"][number];
+type ClassData = RouterOutput["class"]["get"];
 
 interface Student {
     id: string;
     username: string;
-}
-
-interface GetAttendanceResponse {
-    attendance: {
-        id: string;
-        date: Date;
-        event?: {
-            id: string;
-            name: string | null;
-            startTime: Date;
-            endTime: Date;
-            location: string | null;
-        } | null;
-        present: { id: string; username: string }[];
-        late: { id: string; username: string }[];
-        absent: { id: string; username: string }[];
-    }[];
-}
-
-interface CreateAttendanceRequest {
-    eventId?: string;
-    present: { id: string; username: string }[];
-    late: { id: string; username: string }[];
-    absent: { id: string; username: string }[];
-}
-
-interface ClassResponse {
-    classData: {
-        students: Student[];
-    };
 }
 
 interface ManageAttendanceProps {
@@ -52,105 +28,123 @@ interface ManageAttendanceProps {
 
 export default function ManageAttendance({ classId, eventId }: ManageAttendanceProps) {
     const dispatch = useDispatch();
-    const [attendance, setAttendance] = useState<GetAttendanceResponse['attendance'][0] | null>(null);
+    const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
     const [loading, setLoading] = useState(true);
-    const [students, setStudents] = useState<Student[]>([]);
+    const [showAddStudents, setShowAddStudents] = useState(false);
+
+    // Fetch class data to get students
+    const { data: classData } = trpc.class.get.useQuery({ classId });
+    const students = (classData as ClassData)?.class?.students || [];
+
+    // Fetch attendance record for this event
+    const { data: attendanceData, isLoading: attendanceLoading } = trpc.attendance.get.useQuery({ 
+        classId,
+        eventId 
+    });
+
+    // Update attendance mutation
+    const updateAttendanceMutation = trpc.attendance.update.useMutation({
+        onSuccess: (data) => {
+            setAttendance(data.attendance);
+            emitAttendanceUpdate(classId, data.attendance);
+        },
+        onError: (error) => {
+            dispatch(addAlert({ 
+                level: AlertLevel.ERROR, 
+                remark: error.message 
+            }));
+        }
+    });
 
     useEffect(() => {
-        // First fetch the class data to get the list of students
-        handleApiPromise<ApiResponse<ClassResponse>>(
-            fetch(`/api/class/${classId}`)
-        )
-            .then(({ success, payload, level, remark }) => {
-                if (success && 'classData' in payload && 'students' in (payload as ClassResponse).classData && Array.isArray((payload as ClassResponse).classData.students)) {
-                    setStudents((payload as ClassResponse).classData.students);
-                    
-                    // Then fetch attendance record for this event
-                    return handleApiPromise<ApiResponse<GetAttendanceResponse>>(
-                        fetch(`/api/class/${classId}/attendance?eventId=${eventId}`)
-                    );
+        if (!attendanceLoading && attendanceData) {
+            if (attendanceData.attendance.length > 0) {
+                setAttendance(attendanceData.attendance[0]);
                 } else {
-                    dispatch(addAlert({ level, remark }));
-                    setLoading(false);
-                }
-            })
-            .then((response) => {
-                if (!response) return;
-                
-                const { success, payload, level, remark } = response;
-                
-                if (success && 'attendance' in payload && Array.isArray(payload.attendance)) {
-                    if (payload.attendance.length > 0) {
-                        setAttendance(payload.attendance[0]);
-                    } else {
-                        // No attendance record exists yet, update it with all students marked as absent
-                        const newAttendance: CreateAttendanceRequest = {
-                            eventId: eventId,
+                // No attendance record exists yet, create one with all students marked as absent
+                updateAttendanceMutation.mutate({
+                    classId,
+                    eventId,
+                    attendance: {
+                        eventId,
                             present: [],
                             late: [],
-                            absent: students.map(student => ({ id: student.id, username: student.username }))
-                        };
-                        
-                        handleApiPromise<ApiResponse<GetAttendanceResponse>>(
-                            fetch(`/api/class/${classId}/attendance`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(newAttendance),
-                            })
-                        ).then(({ success, payload, level, remark }) => {
-                            if (success && 'attendance' in payload && Array.isArray(payload.attendance) && payload.attendance.length > 0) {
-                                setAttendance(payload.attendance[0]);
-                            } else {
-                                dispatch(addAlert({ level, remark }));
-                            }
-                            setLoading(false);
-                        });
+                        absent: students.map((student: Student) => ({ id: student.id, username: student.username }))
                     }
-                } else {
-                    dispatch(addAlert({ level, remark }));
+                });
                 }
                 setLoading(false);
-            });
-    }, [classId, eventId]);
+        }
+    }, [attendanceLoading, attendanceData, classId, eventId, students, updateAttendanceMutation]);
 
     const updateAttendance = async (studentId: string, status: 'present' | 'late' | 'absent') => {
         if (!attendance) return;
 
-        const newAttendance: CreateAttendanceRequest = {
-            eventId: eventId,
+        const newAttendance = {
+            eventId,
             present: status === 'present' 
                 ? [...attendance.present, { id: studentId, username: '' }]
-                : attendance.present.filter(s => s.id !== studentId),
+                : attendance.present.filter((s: { id: string }) => s.id !== studentId),
             late: status === 'late'
                 ? [...attendance.late, { id: studentId, username: '' }]
-                : attendance.late.filter(s => s.id !== studentId),
+                : attendance.late.filter((s: { id: string }) => s.id !== studentId),
             absent: status === 'absent'
                 ? [...attendance.absent, { id: studentId, username: '' }]
-                : attendance.absent.filter(s => s.id !== studentId),
+                : attendance.absent.filter((s: { id: string }) => s.id !== studentId),
         };
 
-        const response = await handleApiPromise<GetAttendanceResponse>(
-            fetch(`/api/class/${classId}/attendance`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newAttendance),
-            })
-        );
-
-        if (response.success && response.payload.attendance?.[0]) {
-            setAttendance(response.payload.attendance[0]);
-            // Emit socket event for real-time updates
-            emitAttendanceUpdate(classId, response.payload.attendance[0]);
-        } else {
-            dispatch(addAlert({ level: response.level, remark: response.remark }));
-        }
+        updateAttendanceMutation.mutate({
+            classId,
+            eventId,
+            attendance: newAttendance
+        });
     };
 
-    if (loading) {
+    const handleAddStudents = (selectedStudentIds: string[]) => {
+        if (!attendance) return;
+
+        // Add new students to absent list
+        const newStudents = selectedStudentIds
+            .filter(id => !allStudents.includes(id))
+            .map(id => {
+                const student = students.find((s: Student) => s.id === id);
+                return { id, username: student?.username || '' };
+            });
+
+        const newAttendance = {
+            eventId,
+            present: attendance.present,
+            late: attendance.late,
+            absent: [...attendance.absent, ...newStudents]
+        };
+
+        updateAttendanceMutation.mutate({
+            classId,
+            eventId,
+            attendance: newAttendance
+        });
+
+        setShowAddStudents(false);
+    };
+
+    const handleRemoveStudent = (studentId: string) => {
+        if (!attendance) return;
+
+        const newAttendance = {
+            eventId,
+            present: attendance.present.filter((s: { id: string }) => s.id !== studentId),
+            late: attendance.late.filter((s: { id: string }) => s.id !== studentId),
+            absent: attendance.absent.filter((s: { id: string }) => s.id !== studentId),
+        };
+
+        updateAttendanceMutation.mutate({
+            classId,
+            eventId,
+            attendance: newAttendance
+        });
+    };
+
+    if (loading || attendanceLoading) {
         return <div className="flex flex-col space-y-6 w-[30rem]">
             <Loading />
         </div>;
@@ -169,7 +163,10 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
         ...attendance.present,
         ...attendance.late,
         ...attendance.absent,
-    ].map(s => s.id)));
+    ].map((s: { id: string }) => s.id)));
+
+    // Get students not in attendance
+    const availableStudents = students.filter((student: Student) => !allStudents.includes(student.id));
 
     return (
         <div className="flex flex-col space-y-6 w-[30rem]">
@@ -192,23 +189,51 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
             </div>
 
             <div className="w-full border border-border dark:border-border-dark rounded-lg p-4 shadow-md bg-background dark:bg-background-subtle">
-                <h2 className="text-xl font-semibold mb-4 text-foreground-primary">Attendance</h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-foreground-primary">Attendance</h2>
+                    {availableStudents.length > 0 && (
+                        <Button.Primary
+                            onClick={() => setShowAddStudents(!showAddStudents)}
+                            className="flex items-center gap-2"
+                        >
+                            <HiUserAdd className="h-4 w-4" />
+                            Add Students
+                        </Button.Primary>
+                    )}
+                </div>
+
+                {showAddStudents && (
+                    <div className="mb-4">
+                        <SearchableMultiSelect
+                            options={availableStudents.map((student: Student) => ({
+                                id: student.id,
+                                label: student.username
+                            }))}
+                            selectedIds={[]}
+                            onSelectionChange={handleAddStudents}
+                            placeholder="Select students to add..."
+                            searchPlaceholder="Search students..."
+                            className="mb-4"
+                        />
+                    </div>
+                )}
                 
-                <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 mb-3 font-medium px-4 text-foreground-secondary">
+                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 mb-3 font-medium px-4 text-foreground-secondary">
                     <span>Student</span>
                     <span className="text-center">Present</span>
                     <span className="text-center">Late</span>
                     <span className="text-center">Absent</span>
+                    <span className="w-8"></span>
                 </div>
                 <div className="space-y-2">
                     {allStudents.map((studentId) => {
-                        const student = attendance.present.find(s => s.id === studentId) ||
-                                     attendance.late.find(s => s.id === studentId) ||
-                                     attendance.absent.find(s => s.id === studentId);
+                        const student = attendance.present.find((s: { id: string }) => s.id === studentId) ||
+                                     attendance.late.find((s: { id: string }) => s.id === studentId) ||
+                                     attendance.absent.find((s: { id: string }) => s.id === studentId);
                         
                         return (
                             <div key={studentId} 
-                                className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 px-4 py-3 items-center rounded-md hover:bg-background-muted dark:hover:bg-background-subtle transition-colors"
+                                className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center rounded-md hover:bg-background-muted dark:hover:bg-background-subtle transition-colors"
                             >
                                 <span className="font-medium text-foreground">{student?.username}</span>
                                 <div className="flex justify-center">
@@ -216,7 +241,7 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
                                         type="radio"
                                         name={`attendance-${studentId}`}
                                         className="w-4 h-4 rounded border-border text-success focus:ring-success"
-                                        checked={attendance.present.some(s => s.id === studentId)}
+                                        checked={attendance.present.some((s: { id: string }) => s.id === studentId)}
                                         onChange={() => updateAttendance(studentId, 'present')}
                                     />
                                 </div>
@@ -225,7 +250,7 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
                                         type="radio"
                                         name={`attendance-${studentId}`}
                                         className="w-4 h-4 rounded border-border text-warning focus:ring-warning"
-                                        checked={attendance.late.some(s => s.id === studentId)}
+                                        checked={attendance.late.some((s: { id: string }) => s.id === studentId)}
                                         onChange={() => updateAttendance(studentId, 'late')}
                                     />
                                 </div>
@@ -234,10 +259,16 @@ export default function ManageAttendance({ classId, eventId }: ManageAttendanceP
                                         type="radio"
                                         name={`attendance-${studentId}`}
                                         className="w-4 h-4 rounded border-border text-error focus:ring-error"
-                                        checked={attendance.absent.some(s => s.id === studentId)}
+                                        checked={attendance.absent.some((s: { id: string }) => s.id === studentId)}
                                         onChange={() => updateAttendance(studentId, 'absent')}
                                     />
                                 </div>
+                                <button
+                                    onClick={() => handleRemoveStudent(studentId)}
+                                    className="text-foreground-muted hover:text-error transition-colors"
+                                >
+                                    <HiX className="h-4 w-4" />
+                                </button>
                             </div>
                         );
                     })}

@@ -1,122 +1,94 @@
-import Button from "@/components/util/Button";
-import Input from "@/components/util/Input";
-import { CreatePersonalEventRequest, PersonalEvent } from "@/interfaces/api/Agenda";
-import { ApiResponse, DefaultApiResponse, ErrorPayload } from "@/interfaces/api/Response";
-import { AlertLevel } from "@/lib/alertLevel";
-import { formatDateForInput } from "@/lib/time";
-import { addAlert, closeModal, setRefetch } from "@/store/appSlice";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { handleApiPromise } from "@/lib/handleApiPromise";
+import { addAlert } from "@/store/appSlice";
+import { AlertLevel } from "@/lib/alertLevel";
+import { trpc } from "@/utils/trpc";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { formatDateForInput } from "@/lib/time";
 
-export default function UpdatePersonalEvent({
-    id
-}: {
-    id: string;
-}) {
-    const dispatch = useDispatch();
+interface UpdatePersonalEventProps {
+  id: string;
+}
 
-    const [eventData, setEventData] = useState<CreatePersonalEventRequest>({
-        name: '',
-        location: '',
-        remarks: '',
-        startTime: '',
-        endTime: ''
+export default function UpdatePersonalEvent({ id }: UpdatePersonalEventProps) {
+  const [eventData, setEventData] = useState({
+    name: "",
+    location: "",
+    remarks: "",
+    startTime: "",
+    endTime: "",
+  });
+
+  const dispatch = useDispatch();
+
+  const { data: event } = trpc.event.get.useQuery({ id });
+
+  useEffect(() => {
+    if (event?.event) {
+      setEventData({
+        name: event.event.name || "",
+        location: event.event.location || "",
+        remarks: event.event.remarks || "",
+        startTime: formatDateForInput(event.event.startTime),
+        endTime: formatDateForInput(event.event.endTime),
+      });
+    }
+  }, [event]);
+
+  const updateEvent = trpc.event.update.useMutation({
+    onSuccess: () => {
+      dispatch(addAlert({ level: AlertLevel.SUCCESS, remark: "Event updated successfully" }));
+    },
+    onError: (error) => {
+      dispatch(addAlert({ level: AlertLevel.ERROR, remark: error.message }));
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateEvent.mutate({
+      id,
+      data: eventData,
     });
+  };
 
-
-    useEffect(() => {
-        handleApiPromise<{event: PersonalEvent}>(fetch(`/api/agenda/personal/${id}`))
-            .then(({ success, payload, level, remark }) => {
-                if (success) {
-                    setEventData({
-                        ...payload.event,
-                    });
-                } else {
-                    dispatch(addAlert({ level, remark }));
-                }
-            });
-    }, []);
-
-    useEffect(() => {
-        if (!eventData.startTime.toString().length || !eventData.endTime.toString().length) return;
-        handleApiPromise(fetch(`/api/agenda/personal/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-type': 'application/json',
-            },
-            body: JSON.stringify({
-                name: eventData.name,
-                remarks: eventData.remarks,
-                location: eventData.location,
-                startTime: eventData.startTime,
-                endTime: eventData.endTime
-            })
-        }))
-        .then(({ success, level, remark }) => {
-            if (!success) {
-                dispatch(addAlert({ level, remark }));
-            } else {
-                dispatch(setRefetch(true));
-            }
-        });
-    }, [eventData])
-
-    return (<>
-        <div>
-            <div className="flex flex-col space-y-3 mt-3">
-                <div className="flex flex-col space-y-1">
-                    <label className="text-xs font-semibold">Event name:</label>
-                    <Input.Text type="text" placeholder="Event Name"
-                        value={eventData.name!.toString()}
-                        onChange={(e) => setEventData({
-                            ...eventData,
-                            name: e.target.value,
-                        })} />
-                </div>
-                <div className="flex flex-col space-y-1">
-                    <label className="text-xs font-semibold">Location:</label>
-                    <Input.Text placeholder="Location here"
-                        value={eventData.location!.toString()}
-                        onChange={(e) => setEventData({
-                            ...eventData,
-                            location: e.target.value,
-                        })}
-                    />
-                </div>
-                <div className="flex flex-col space-y-1">
-                    <label className="text-xs font-semibold">Remarks:</label>
-                    <Input.Textarea placeholder="Remarks here..."
-                        value={eventData.remarks!.toString()}
-                        onChange={(e) => setEventData({
-                            ...eventData,
-                            remarks: e.target.value,
-                        })}
-                    />
-                </div>
-                <div className="flex flex-row justify-between space-x-2 w-full flex-grow-0 shrink-0">
-                    <div className="flex flex-col space-y-1 w-full">
-                        <label className="text-xs font-semibold">Start time:</label>
-                        <Input.Text type="datetime-local"
-                            value={formatDateForInput(eventData.startTime!.toString())}
-                            onChange={(e) => setEventData({
-                                ...eventData,
-                                startTime: new Date(e.target.value + "Z").toISOString(),
-                            })}
-                            datetime-utc="true" />
-                    </div>
-                    <div className="flex flex-col space-y-1 w-full">
-                        <label className="text-xs font-semibold">End time:</label>
-                        <Input.Text type="datetime-local"
-                            value={formatDateForInput(eventData.endTime!.toString())}
-                            onChange={(e) => setEventData({
-                                ...eventData,
-                                endTime: new Date(e.target.value + "Z").toISOString(),
-                            })}
-                            datetime-utc="true" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    </>);
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input.Text
+        label="Name"
+        value={eventData.name}
+        onChange={(e) => setEventData({ ...eventData, name: e.target.value })}
+        required
+      />
+      <Input.Text
+        label="Location"
+        value={eventData.location}
+        onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
+      />
+      <Input.Textarea
+        label="Remarks"
+        value={eventData.remarks}
+        onChange={(e) => setEventData({ ...eventData, remarks: e.target.value })}
+      />
+      <Input.Text
+        label="Start Time"
+        type="datetime-local"
+        value={eventData.startTime}
+        onChange={(e) => setEventData({ ...eventData, startTime: e.target.value })}
+        required
+      />
+      <Input.Text
+        label="End Time"
+        type="datetime-local"
+        value={eventData.endTime}
+        onChange={(e) => setEventData({ ...eventData, endTime: e.target.value })}
+        required
+      />
+      <div className="flex justify-end space-x-2">
+        <Button.Light>Cancel</Button.Light>
+        <Button.Primary type="submit">Update Event</Button.Primary>
+      </div>
+    </form>
+  );
 }

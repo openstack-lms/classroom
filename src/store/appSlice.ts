@@ -1,12 +1,19 @@
-
 import { AlertLevel } from '@/lib/alertLevel';
 import { User } from '@prisma/client';
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { stat } from 'fs';
 
 export interface Alert {
     level: AlertLevel;
     remark: string;
+}
+
+export type ModalType = 'add-student' | 'add-teacher' | 'add-class' | 'add-department' | 'add-course' | 'bulk-add';
+
+interface ModalState {
+    // type: ModalType | null;
+    body: React.ReactNode;
+    header: string;
 }
 
 interface AppState {
@@ -16,10 +23,7 @@ interface AppState {
         student: boolean;
     } & Partial<User>;
     alerts: Alert[];
-    modal: {
-        header: string;
-        body: React.ReactNode,
-    };
+    modal: ModalState;
     refetch: boolean;
 }
 
@@ -37,9 +41,9 @@ const initialState: AppState = {
     refetch: false,
 };
 
-export const appSlice = createSlice({
+const appSlice = createSlice({
     name: 'app',
-    initialState: initialState,
+    initialState,
     reducers: {
         setAuth: (state, action) => {
             state.user = {
@@ -58,37 +62,24 @@ export const appSlice = createSlice({
 
             state.alerts = state.alerts.filter((_, index) => index !== id);
         },
-        openModal: (state, action) => {
-            const content = action.payload;
-
-            state.modal = content;
+        openModal: (state, action: PayloadAction<ModalState>) => {
+            state.modal = action.payload;
         },
         closeModal: (state) => {
-            state.modal = {
-                body: null,
-                header: '',
-            };
+            state.modal = initialState.modal;
         },
         setRefetch: (state, action) => {
             state.refetch = action.payload;
         },
         setTeacher: (state, action) => {
-            if (!action.payload) {
-                state.user = {
-                    ...state.user,
-                    teacher: false,
-                    student: true,
-                }
-                return;
-            }
             state.user = {
                 ...state.user,
-                teacher: true,
-                student: false,
+                teacher: action.payload,
+                student: !action.payload
             }
         }
     },
 });
 
-export const { setAuth, addAlert, removeAlert, openModal, closeModal , setRefetch, setTeacher} = appSlice.actions;
+export const { setAuth, addAlert, removeAlert, openModal, closeModal, setRefetch, setTeacher } = appSlice.actions;
 export default appSlice.reducer;

@@ -4,13 +4,12 @@ import { useState } from "react";
 import { addAlert, closeModal } from "@/store/appSlice";
 import { useDispatch } from "react-redux";
 import { AlertLevel } from "@/lib/alertLevel";
-import { HiX } from "react-icons/hi";
-import Button from "../../util/Button";
-import Input from "../../util/Input";
-import { CreateClassRequest } from "@/interfaces/api/Class";
-import { DefaultApiResponse } from "@/interfaces/api/Response";
-import { handleApiPromise } from "@/lib/handleApiPromise";
-import { SUBJECT_OPTIONS, SECTION_OPTIONS } from "@/components/util/commonData";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { SUBJECT_OPTIONS, SECTION_OPTIONS } from "@/lib/commonData";
+import { trpc } from "@/utils/trpc";
+import { TRPCClientErrorLike } from "@trpc/client";
+import { emitClassCreate } from "@/lib/socket";
 
 export default function CreateClass() {
     const dispatch = useDispatch();
@@ -21,27 +20,30 @@ export default function CreateClass() {
         section: '',
     });
 
-    return (<div className="w-[30rem]">
-        <form onSubmit={(e) => {
-            e.preventDefault();
-        
-            setClassData({ name: '', subject: '', section: '' });
+    const { mutate: createClass, isPending } = trpc.class.create.useMutation({
+        onSuccess: (data) => {
+            // Emit socket event for real-time update
+            emitClassCreate(data.class);
+            dispatch(addAlert({ level: AlertLevel.SUCCESS, remark: 'Class created successfully' }));
+            dispatch(closeModal());
+        },
+        onError: (error: TRPCClientErrorLike<any>) => {
+            dispatch(addAlert({ level: AlertLevel.ERROR, remark: error.message }));
+        },
+    });
 
-            handleApiPromise(fetch('/api/class', {
-                method: 'POST',
-                headers: {
-                    'Content-type': 'application/json',
-                },
-                body: JSON.stringify(classData as CreateClassRequest),
-            }))
-            .then(({ success, level, remark }) => {
-                dispatch(addAlert({ level, remark }));
-                if (success) {
-                    setClassData({ name: '', subject: '', section: '' });
-                    dispatch(closeModal());
-                }
-            });
-        }}>
+    const handleCreateClass = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        
+        setClassData({ name: '', subject: '', section: '' });
+
+        createClass({
+            ...classData,
+        });
+    }
+
+    return (<div className="w-[30rem]">
+        <form onSubmit={handleCreateClass}>
             <div className="w-full flex flex-col space-y-3 mt-4">
                 <Input.Text
                     label="Name" 
@@ -59,7 +61,9 @@ export default function CreateClass() {
                     searchList={SECTION_OPTIONS}
                     onChange={(e) => setClassData({ ...classData, section: e.target.value })} />
             </div>
-            <Button.Primary className="mt-5">Create</Button.Primary>
+            <Button.Primary className="mt-5" disabled={isPending}>
+                {isPending ? 'Creating...' : 'Create'}
+            </Button.Primary>
         </form>
     </div>)
 }

@@ -1,19 +1,18 @@
 "use client";
 
 import Loading from "@/components/Loading";
-import Button from "@/components/util/Button";
-import Input from "@/components/util/Input";
-import { GetClassResponse, MemberRequest } from "@/interfaces/api/Class";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { AlertLevel } from "@/lib/alertLevel";
 import { addAlert, setRefetch } from "@/store/appSlice";
 import { RootState } from "@/store/store";
 import { useEffect, useState, useMemo } from "react"
 import { HiInbox, HiTrash, HiSearch, HiUsers } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
-import { handleApiPromise } from "@/lib/handleApiPromise";
-import Empty from "@/components/util/Empty";
-import ProfilePicture from "@/components/util/ProfilePicture";
+import Empty from "@/components/ui/Empty";
+import ProfilePicture from "@/components/ui/ProfilePicture";
 import { initializeSocket, joinClass, leaveClass, emitMemberUpdate, emitMemberDelete } from "@/lib/socket";
+import { trpc } from "@/utils/trpc";
 
 type Member = {
     id: string;
@@ -32,40 +31,40 @@ const MemberCard = ({ member, isCurrentUser, isTeacher, classId, onUpdate }: {
 }) => {
     const dispatch = useDispatch();
 
-    const handleRoleChange = async (newType: 'teacher' | 'student') => {
-        const { success, level, remark } = await handleApiPromise(fetch(`/api/class/${classId}/member`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: member.id, type: newType } as MemberRequest),
-        }));
-
-        dispatch(addAlert({ level, remark }));
-        
-        if (success) {
-            emitMemberUpdate(classId, { ...member, type: newType });
+    const changeRole = trpc.class.changeRole.useMutation({
+        onSuccess: (data) => {
+            emitMemberUpdate(classId, data.user);
             onUpdate();
-        }
+        },
+        onError: (error) => {
+            dispatch(addAlert({ level: AlertLevel.ERROR, remark: error.message }));
+        },
+    });
+
+    const removeMember = trpc.class.removeMember.useMutation({
+        onSuccess: (data) => {
+            dispatch(addAlert({ level: AlertLevel.SUCCESS, remark: 'User removed successfully' }));
+            emitMemberDelete(classId, data.removedUserId);
+            onUpdate();
+        },
+        onError: (error) => {
+            dispatch(addAlert({ level: AlertLevel.ERROR, remark: error.message }));
+        },
+    });
+
+    const handleRoleChange = (newType: 'teacher' | 'student') => {
+        changeRole.mutate({
+            classId,
+            userId: member.id,
+            type: newType,
+        });
     };
 
-    const handleDelete = async () => {
-        try {
-            const response = await fetch(`/api/class/${classId}/member`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: member.id, type: member.type } as MemberRequest),
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                dispatch(addAlert({ level: AlertLevel.SUCCESS, remark: 'User removed successfully' }));
-                emitMemberDelete(classId, member.id);
-                onUpdate();
-            } else {
-                dispatch(addAlert({ level: AlertLevel.ERROR, remark: data.remark }));
-            }
-        } catch {
-            dispatch(addAlert({ level: AlertLevel.ERROR, remark: 'Please try again later' }));
-        }
+    const handleDelete = () => {
+        removeMember.mutate({
+            classId,
+            userId: member.id,
+        });
     };
 
     return (
@@ -119,19 +118,20 @@ const MemberCard = ({ member, isCurrentUser, isTeacher, classId, onUpdate }: {
 
 export default function Members({ params }: { params: { classId: string } }) {
     const { classId } = params;
-    const [members, setMembers] = useState<{ teachers: Member[], students: Member[] }>();
     const [searchQuery, setSearchQuery] = useState("");
     const [filter, setFilter] = useState<MemberFilter>('all');
     
     const appState = useSelector((state: RootState) => state.app);
     const dispatch = useDispatch();
 
+    const { data: classData, isLoading, refetch } = trpc.class.get.useQuery({ classId });
+
     useEffect(() => {
-        if (appState.refetch || !members) {
-            fetchMembers();
+        if (appState.refetch) {
+            refetch();
             dispatch(setRefetch(false));
         }
-    }, [appState.refetch, dispatch]);
+    }, [appState.refetch, dispatch, refetch]);
 
     useEffect(() => {
         const socket = initializeSocket();
@@ -139,41 +139,11 @@ export default function Members({ params }: { params: { classId: string } }) {
         joinClass(classId);
 
         socket.on('member-updated', (updatedMember: Member) => {
-            setMembers(prevMembers => {
-                if (!prevMembers) return { teachers: [], students: [] };
-                
-                const isTeacher = updatedMember.type === 'teacher';
-                const list = isTeacher ? prevMembers.teachers : prevMembers.students;
-                const otherList = isTeacher ? prevMembers.students : prevMembers.teachers;
-                
-                const index = list.findIndex(m => m.id === updatedMember.id);
-                if (index === -1) {
-                    const newList = [...list, updatedMember];
-                    const newOtherList = otherList.filter(m => m.id !== updatedMember.id);
-                    return {
-                        teachers: isTeacher ? newList : newOtherList,
-                        students: isTeacher ? newOtherList : newList
-                    };
-                }
-                
-                const newList = [...list];
-                newList[index] = updatedMember;
-                return {
-                    teachers: isTeacher ? newList : prevMembers.teachers,
-                    students: isTeacher ? prevMembers.students : newList
-                };
-            });
+            refetch();
         });
 
         socket.on('member-deleted', (deletedMemberId: string) => {
-            setMembers(prevMembers => {
-                if (!prevMembers) return { teachers: [], students: [] };
-                
-                return {
-                    teachers: prevMembers.teachers.filter(m => m.id !== deletedMemberId),
-                    students: prevMembers.students.filter(m => m.id !== deletedMemberId)
-                };
-            });
+            refetch();
         });
 
         return () => {
@@ -181,22 +151,16 @@ export default function Members({ params }: { params: { classId: string } }) {
             socket.off('member-updated');
             socket.off('member-deleted');
         };
-    }, [classId]);
+    }, [classId, refetch]);
 
-    const fetchMembers = async () => {
-        const { success, payload, level, remark } = await handleApiPromise<GetClassResponse>(
-            fetch(`/api/class/${classId}`)
-        );
+    const members = useMemo(() => {
+        if (!classData?.class) return { teachers: [], students: [] };
 
-        if (success) {
-            setMembers({
-                teachers: payload.classData.teachers.map(t => ({ ...t, type: 'teacher' as const })),
-                students: payload.classData.students.map(s => ({ ...s, type: 'student' as const })),
-            });
-        } else {
-            dispatch(addAlert({ level, remark }));
-        }
-    };
+        return {
+            teachers: classData.class.teachers.map((t: { id: string; username: string }) => ({ ...t, type: 'teacher' as const })),
+            students: classData.class.students.map((s: { id: string; username: string }) => ({ ...s, type: 'student' as const })),
+        };
+    }, [classData]);
 
     const filteredMembers = useMemo(() => {
         if (!members) return [];
@@ -219,7 +183,7 @@ export default function Members({ params }: { params: { classId: string } }) {
         return result;
     }, [members, filter, searchQuery]);
 
-    if (!members) {
+    if (isLoading || !members) {
         return (
             <div className="h-full w-full flex justify-center items-center">
                 <Loading />
@@ -257,26 +221,24 @@ export default function Members({ params }: { params: { classId: string } }) {
                     </Input.Select>
                 </div>
 
-                <div className="flex flex-col">
-                    {filteredMembers.length > 0 ? (
-                        filteredMembers.map((member, index) => (
-                            <MemberCard
-                                key={member.id || index}
-                                member={member}
-                                isCurrentUser={appState.user.username === member.username}
-                                isTeacher={appState.user.teacher}
-                                classId={classId}
-                                onUpdate={() => dispatch(setRefetch(true))}
-                            />
-                        ))
-                    ) : (
+                <div className="flex flex-col space-y-2">
+                    {filteredMembers.length === 0 ? (
                         <Empty
                             icon={HiUsers}
-                            title={searchQuery ? "No Members Found" : "No Members"}
-                            description={searchQuery 
-                                ? "No members found matching your search criteria" 
-                                : "There are no members in this class yet. Add members to get started."}
+                            title="No members found"
+                            description="Try adjusting your search or filter"
                         />
+                    ) : (
+                        filteredMembers.map((member) => (
+                            <MemberCard
+                                key={member.id}
+                                member={member}
+                                isCurrentUser={member.id === appState.user?.id}
+                                isTeacher={appState.user?.teacher}
+                                classId={classId}
+                                onUpdate={refetch}
+                            />
+                        ))
                     )}
                 </div>
             </div>

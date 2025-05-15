@@ -6,20 +6,18 @@ import { useDispatch, useSelector } from "react-redux";
 import { addAlert, openModal, setRefetch } from "@/store/appSlice";
 import Loading from "@/components/Loading";
 import CreateAssignment from "@/components/class/forms/CreateAssignment";
-import Empty from "@/components/util/Empty";
+import Empty from "@/components/ui/Empty";
 import CreateSection from "@/components/class/forms/CreateSection";
 import { HiClipboardList, HiFilter, HiSearch } from "react-icons/hi";
 import { initializeSocket, joinClass, leaveClass } from "@/lib/socket";
-import { AlertLevel } from "@/lib/alertLevel";
+import { trpc } from "@/utils/trpc";
+import type { RouterOutputs } from "@server/routers/_app";
 
-import Button from "@/components/util/Button";
+import Button from "@/components/ui/Button";
 import Assignment from "@/components/class/Assignment";
-import AssignmentGroup from "@/components/class/AssignmentGroup";
-import { ApiResponse } from "@/interfaces/api/Response";
-import { Assignment as AssignmentType, GetClassResponse } from "@/interfaces/api/Class";
-import { handleApiPromise } from "@/lib/handleApiPromise";
-import Input from "@/components/util/Input";
-import IconFrame from "@/components/util/IconFrame";
+import Section from "@/components/class/Section";
+import Input from "@/components/ui/Input";
+import IconFrame from "@/components/ui/IconFrame";
 
 type Section = {
     id: string;
@@ -32,6 +30,8 @@ type FilterState = {
     dueDate: 'all' | 'today' | 'week' | 'month';
 };
 
+type AssignmentType = RouterOutputs['assignment']['create'];
+
 export default function AssignmentListPage({ params }: { params: { classId: string } }) {
     const classId = params.classId;
 
@@ -39,7 +39,7 @@ export default function AssignmentListPage({ params }: { params: { classId: stri
     const dispatch = useDispatch();
 
     const [assignments, setAssignments] = useState<AssignmentType[] | null>(null);
-    const [sections, setSections] = useState<Section[] | null>(null);
+    const [sections, setSections] = useState<Section[]>([]);
     const [filters, setFilters] = useState<FilterState>({
         search: '',
         status: 'all',
@@ -47,22 +47,16 @@ export default function AssignmentListPage({ params }: { params: { classId: stri
     });
     const [showFilters, setShowFilters] = useState(false);
 
+    const { data: classData, isLoading } = trpc.class.get.useQuery({ classId });
+
     // Fetch initial data
     useEffect(() => {
-        handleApiPromise<GetClassResponse>(fetch(`/api/class/${classId}`, {}))
-            .then(({ payload, level, success, remark }) => {
-                if (success) {
-                    setAssignments([...payload.classData.assignments])
-                    setSections([...payload.classData.sections])
-                    dispatch(setRefetch(false));
-                } else {
-                    dispatch(addAlert({
-                        level: level,
-                        remark: remark,
-                    }))
-                }
-            })
-    }, [appState.refetch])
+        if (classData) {
+            setAssignments([...classData.class.assignments]);
+            setSections([...classData.class.sections]);
+            dispatch(setRefetch(false));
+        }
+    }, [classData, appState.refetch]);
 
     // Socket connection and event handling
     useEffect(() => {
@@ -135,7 +129,7 @@ export default function AssignmentListPage({ params }: { params: { classId: stri
         // Handle section deletions
         socket.on('section-deleted', (deletedSectionId: string, ack) => {
             setSections(prevSections => {
-                if (!prevSections) return null;
+                if (!prevSections) return [];
                 return prevSections.filter(s => s.id !== deletedSectionId);
             });
             if (ack) ack();
@@ -204,13 +198,14 @@ export default function AssignmentListPage({ params }: { params: { classId: stri
         });
     };
 
-    if (!assignments) {
+    if (isLoading || !assignments) {
         return <div className="flex justify-center items-center h-full w-full">
             <Loading />
         </div>
     }
 
-    const filteredAssignments = filterAssignments(assignments);
+    // const filteredAssignments = filterAssignments(assignments);
+    const filteredAssignments = assignments;
 
     return (
         <div className="flex flex-col space-y-3">
@@ -312,7 +307,7 @@ export default function AssignmentListPage({ params }: { params: { classId: stri
                     );
 
                     return (
-                        <AssignmentGroup
+                        <Section
                             section={section}
                             assignments={sectionAssignments}
                             key={section.id}
@@ -327,9 +322,9 @@ export default function AssignmentListPage({ params }: { params: { classId: stri
                 filteredAssignments.filter(assignment => 
                     assignment && 
                     (!assignment.section || !assignment.section.id)
-                ).map((assignment: AssignmentType, index: number) => (
+                ).map((assignment: AssignmentType) => (
                     <Assignment
-                        key={index}
+                        key={assignment.id}
                         title={assignment.title}
                         date={assignment.dueDate!}
                         isTeacher={appState.user.teacher}

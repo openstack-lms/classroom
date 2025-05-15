@@ -1,15 +1,12 @@
 "use client";
 
 import FileEdit from "@/components/class/FileEdit";
-import Empty from "@/components/util/Empty";
+import Empty from "@/components/ui/Empty";
 import { HiPaperClip } from "react-icons/hi";
-import Button from "@/components/util/Button";
-import Input from "@/components/util/Input";
-import { Assignment, GetAssignmentResponse, UpdateAssignmentRequest } from "@/interfaces/api/Class";
-import { ApiResponse, DefaultApiResponse, ErrorPayload } from "@/interfaces/api/Response";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { AlertLevel } from "@/lib/alertLevel";
 import { fileToBase64 } from "@/lib/fileToBase64";
-import { handleApiPromise } from "@/lib/handleApiPromise";
 import { addAlert, setRefetch } from "@/store/appSlice";
 import { RootState } from "@/store/store";
 import { useState, useEffect, useRef } from "react";
@@ -17,44 +14,65 @@ import { useDispatch, useSelector } from "react-redux";
 import { v4 } from "uuid";
 import { emitAssignmentUpdate } from "@/lib/socket";
 import { joinClass } from "@/lib/socket";
+import { trpc } from "@/utils/trpc";
+import type { RouterOutputs } from "@server/routers/_app";
+import Loading from "@/components/Loading";
 
+type FileData = {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    data: string;
+};
+
+type Attachment = {
+    id: string;
+    name: string;
+    type: string;
+    path: string;
+    thumbnailId?: string;
+};
+
+type AssignmentData = RouterOutputs['assignment']['create'] & {
+    refetch: boolean;
+    sections: { name: string; id: string; }[];
+    newAttachments: FileData[];
+    removedAttachments: { id: string; }[];
+    attachments: Attachment[];
+};
 
 export default function _Assignment({ params }: { params: { classId: string, assignmentId: string } }) {
-    const [assignmentData, setAssignmentData] = useState<UpdateAssignmentRequest & Assignment &  { refetch: boolean; sections: { name: string; id: string; }[] } | null>(null);
+    const [assignmentData, setAssignmentData] = useState<AssignmentData | null>(null);
     const appState = useSelector((state: RootState) => state.app);
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(true);
 
-    const [classId, setClassId] = useState<string | null> (null);
+    const [classId, setClassId] = useState<string | null>(null);
     const dispatch = useDispatch();
     const fileInput = useRef<HTMLInputElement | null>(null);
 
+    const { data: assignment, isLoading } = trpc.assignment.get.useQuery({ 
+        id: params.assignmentId,
+        classId: params.classId
+    });
+
     useEffect(() => {
-        // if (assignmentData && !assignmentData.refetch) return;
-
-        handleApiPromise<GetAssignmentResponse>(fetch(`/api/class/${params.classId}/assignment/${params.assignmentId}`))
-            .then(({ success, payload, level, remark }) => {
-                if (success) {
-                    setAssignmentData({
-                        ...payload.assignmentData,
-                        newAttachments: [],
-                        removedAttachments: [],
-                        refetch: false,
-                        maxGrade: payload.assignmentData.maxGrade || 0,
-                        sections: payload.assignmentData.sections || [],
-                    });
-                    setClassId(payload.classId);
-                    dispatch(setRefetch(false));
-                    setIsSaved(true);
-                    joinClass(payload.classId);
-                    emitAssignmentUpdate(payload.classId, payload.assignmentData);  
-                } else {
-                    dispatch(addAlert({ level, remark }));
-                }
+        if (assignment) {
+            setAssignmentData({
+                ...assignment,
+                refetch: false,
+                newAttachments: [],
+                removedAttachments: [],
+                sections: assignment.sections || [],
             });
-    }, [appState.refetch]);
-
-    console.log(appState.refetch)
+            setClassId(assignment.classId);
+            dispatch(setRefetch(false));
+            setIsSaved(true);
+            joinClass(assignment.classId);
+            emitAssignmentUpdate(assignment.classId, assignment);
+        }
+    }, [assignment, appState.refetch]);
 
     useEffect(() => {
         if (!assignmentData) return;
@@ -67,28 +85,45 @@ export default function _Assignment({ params }: { params: { classId: string, ass
         setIsSaved(false);
     }, [assignmentData]);
 
+    const updateAssignment = trpc.assignment.update.useMutation({
+        onSuccess: (data) => {
+            dispatch(setRefetch(true));
+            setIsSaving(false);
+            setIsSaved(true);
+            emitAssignmentUpdate(params.classId, data);
+        },
+        onError: (error) => {
+            dispatch(addAlert({
+                level: AlertLevel.ERROR,
+                remark: error.message || 'Failed to update assignment',
+            }));
+            setIsSaving(false);
+        }
+    });
+
     const saveChanges = () => {
         if (!assignmentData) return;
         
         setIsSaving(true);
-        handleApiPromise(fetch(`/api/class/${classId}/assignment/${params.assignmentId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ...assignmentData,
-            }),
-        }))
-        .then(({ success, level, remark }) => {
-            if (!success) {
-                dispatch(addAlert({ level, remark }));
-            }
-            dispatch(setRefetch(true));
-            setIsSaving(false);
-            setIsSaved(true);
+        updateAssignment.mutate({
+            classId: params.classId,
+            id: params.assignmentId,
+            title: assignmentData.title,
+            instructions: assignmentData.instructions,
+            dueDate: assignmentData.dueDate,
+            maxGrade: assignmentData.maxGrade,
+            graded: assignmentData.graded,
+            weight: assignmentData.weight,
+            sectionId: assignmentData.section?.id,
+            files: assignmentData.newAttachments,
         });
     };
+
+    if (isLoading || !assignmentData) {
+        return <div className="flex justify-center items-center h-full w-full">
+            <Loading />
+        </div>
+    }
 
     return (
         <div className="mx-auto">
@@ -108,7 +143,7 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                         <Input.Text
                             type="date"
                             label="Due Date"
-                            value={assignmentData.dueDate!.toString().slice(0, 10)}
+                            value={assignmentData.dueDate.toString().slice(0, 10)}
                             onChange={(e) => setAssignmentData({
                                 ...assignmentData,
                                 refetch: false,
@@ -158,7 +193,7 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                     /> 
                 )}
                 {/* @description: display and attach attachments to assignment */}
-                {assignmentData.attachments.map((attachment, index) => (
+                {assignmentData.attachments.map((attachment: Attachment, index: number) => (
                         <FileEdit
                             key={index}
                             src={attachment.path.replace('/public', '')}
@@ -169,7 +204,7 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                                 setAssignmentData({
                                     ...assignmentData,
                                     refetch: true,
-                                    attachments: [...assignmentData.attachments.filter(_attachment => _attachment.id != attachment.id)],
+                                    attachments: [...assignmentData.attachments.filter((_attachment: Attachment) => _attachment.id !== attachment.id)],
                                     removedAttachments: [{ id: attachment.id }],
                                 })
                             }} />
@@ -198,7 +233,8 @@ export default function _Assignment({ params }: { params: { classId: string, ass
                                     id: v4(),
                                     name: e.target.files[0].name,
                                     type: e.target.files[0].type,
-                                    base64: base64.toString(),
+                                    size: e.target.files[0].size,
+                                    data: base64.toString(),
                                 },
                             ]
                         });
