@@ -1,0 +1,170 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Institution {
+  id              String  @id @default(uuid())
+  name            String
+  settings        Json?   @default("{}")
+  classes         Class[]
+  primaryTeachers User[]  @relation("InstitutionPrimaryTeachers")
+  admins          User[]  @relation("InstitutionAdmins")
+  students        User[]  @relation("InstitutionMembers")
+  teachers        User[]  @relation("InstitutionTeachers")
+}
+
+model User {
+  id                String         @id @default(uuid())
+  username          String
+  password          String
+  institutionId     String?
+  profile           Json?          @default("{}")
+  announcements     Announcement[]
+  assignments       Assignment[]
+  events            Event[]
+  files             File[]
+  sessions          Session[]
+  submissions       Submission[]
+  institution       Institution?   @relation("InstitutionPrimaryTeachers", fields: [institutionId], references: [id])
+  absentAttendance  Attendance[]   @relation("AbsentAttendance")
+  adminAt           Institution[]  @relation("InstitutionAdmins")
+  studentAt         Institution[]  @relation("InstitutionMembers")
+  teacherAt         Institution[]  @relation("InstitutionTeachers")
+  lateAttendance    Attendance[]   @relation("LateAttendance")
+  presentAttendance Attendance[]   @relation("PresentAttendance")
+  studentIn         Class[]        @relation("UserStudentToClass")
+  teacherIn         Class[]        @relation("UserTeacherToClass")
+}
+
+model Class {
+  id            String         @id @default(uuid())
+  name          String
+  subject       String
+  section       String
+  institutionId String?
+  announcements Announcement[]
+  assignments   Assignment[]
+  attendance    Attendance[]
+  institution   Institution?   @relation(fields: [institutionId], references: [id])
+  events        Event[]
+  sections      Section[]
+  sessions      Session[]
+  students      User[]         @relation("UserStudentToClass")
+  teachers      User[]         @relation("UserTeacherToClass")
+}
+
+model File {
+  id           String      @id @default(uuid())
+  name         String
+  path         String
+  size         Int?
+  type         String
+  userId       String?
+  uploadedAt   DateTime?   @default(now())
+  assignmentId String?
+  submissionId String?
+  annotationId String?
+  thumbnailId  String?     @unique
+  annotations  Submission? @relation("SubmissionAnnotations", fields: [annotationId], references: [id], onDelete: Cascade)
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  submission   Submission? @relation("SubmissionFile", fields: [submissionId], references: [id], onDelete: Cascade)
+  thumbnail    File?       @relation("Thumbnail", fields: [thumbnailId], references: [id])
+  originalFile File?       @relation("Thumbnail")
+  user         User?       @relation(fields: [userId], references: [id])
+}
+
+model Assignment {
+  id           String       @id @default(cuid())
+  title        String
+  instructions String
+  dueDate      DateTime
+  createdAt    DateTime?    @default(now())
+  modifiedAt   DateTime?    @default(now()) @updatedAt
+  teacherId    String
+  classId      String
+  graded       Boolean      @default(false)
+  maxGrade     Int?         @default(0)
+  weight       Float        @default(1)
+  sectionId    String?
+  class        Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  section      Section?     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  teacher      User         @relation(fields: [teacherId], references: [id], onDelete: NoAction)
+  attachments  File[]
+  submissions  Submission[]
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  remarks   String
+  teacherId String
+  createdAt DateTime @default(now())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher   User     @relation(fields: [teacherId], references: [id])
+}
+
+model Submission {
+  id            String     @id @default(uuid())
+  createdAt     DateTime   @default(now())
+  modifiedAt    DateTime   @default(now())
+  assignmentId  String
+  studentId     String
+  gradeReceived Int?
+  submittedAt   DateTime?
+  submitted     Boolean?   @default(false)
+  returned      Boolean?   @default(false)
+  annotations   File[]     @relation("SubmissionAnnotations")
+  attachments   File[]     @relation("SubmissionFile")
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student       User       @relation(fields: [studentId], references: [id])
+}
+
+model Section {
+  id          String       @id @default(uuid())
+  name        String
+  classId     String
+  assignments Assignment[]
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  createdAt DateTime? @default(now())
+  expiresAt DateTime?
+  userId    String?
+  classId   String?
+  class     Class?    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: NoAction)
+}
+
+model Event {
+  id         String       @id @default(uuid())
+  name       String?
+  startTime  DateTime
+  endTime    DateTime
+  location   String?
+  remarks    String?
+  userId     String?
+  classId    String?
+  attendance Attendance[]
+  class      Class?       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user       User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Attendance {
+  id      String   @id @default(uuid())
+  date    DateTime @default(now())
+  classId String
+  eventId String?
+  class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  absent  User[]   @relation("AbsentAttendance")
+  late    User[]   @relation("LateAttendance")
+  present User[]   @relation("PresentAttendance")
+}
